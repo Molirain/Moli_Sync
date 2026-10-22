@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">MoliSync</string>
+    <string name="share_label">分享到 MoliSync</string>
+    <string name="notification_channel_transfers">文件传输</string>
+    <string name="notification_channel_description">显示大文件传输的实时进度与速率</string>
+</resources>
