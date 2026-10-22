@@ -49,6 +49,16 @@ Copy-Item client.example.json client.json
 .\publish\MoliSync.Client.exe --config .\client.json --list-certificates
 ```
 
+## 便携性
+
+发布产物是**单个便携 exe**，不需要安装程序：
+
+- NativeAOT 自包含发布，不需要预装 .NET 运行时，也不依赖 VC++ 可再发行组件。`dumpbin /dependents` 只看到 Windows 10/11 自带的系统 DLL（`KERNEL32`、`bcrypt`、`CRYPT32`、`ncrypt`、`WS2_32` 等）和 Universal CRT API set。
+- 默认配置文件位于 **exe 同目录** 的 `client.json`（`AppContext.BaseDirectory`），可用 `--config` 指向任意路径；把 exe、`client.json`、CA 证书放在同一个 U 盘目录即可运行。
+- 不写注册表、不注册服务、不创建开机启动项、不写 `%APPDATA%` 或临时目录；代码中没有 `Microsoft.Win32.Registry` 调用。
+- 唯一的写盘行为是 `downloadDirectory`（配置必填，启动时创建）以及下载过程中的 `<blobId>.part` 与最终文件。若不需要接收文件，把它指向一个临时目录即可。
+- `publish` 目录里的 `.pdb` 只是调试符号，可以删除，不影响运行。
+
 ## 配置
 
 | 字段 | 说明 |
