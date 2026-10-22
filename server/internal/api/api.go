@@ -16,16 +16,19 @@ import (
 	"time"
 
 	"github.com/molirain/molisync/server/internal/auth"
+	"github.com/molirain/molisync/server/internal/p2p"
 	"github.com/molirain/molisync/server/internal/store"
 	"github.com/molirain/molisync/server/internal/ws"
 )
 
 // Deps are the collaborators required by the HTTP surface.
 type Deps struct {
-	Auth   *auth.Middleware
-	Hub    *ws.Hub
-	Store  *store.Store
-	Logger *slog.Logger
+	Auth     *auth.Middleware
+	Hub      *ws.Hub
+	Store    *store.Store
+	Sessions *p2p.Store
+	Relay    *p2p.Relay
+	Logger   *slog.Logger
 }
 
 // NewRouter builds the complete HTTP handler, including the middleware chain.
@@ -44,6 +47,7 @@ func NewRouter(deps Deps) http.Handler {
 	mux.Handle("POST /api/v1/records/text", deps.Auth.RequireDevice(http.HandlerFunc(handleCreateText(deps))))
 	mux.Handle("POST /api/v1/records/blob", deps.Auth.RequireDevice(http.HandlerFunc(handleCreateBlob(deps))))
 	mux.Handle("GET /api/v1/blobs/{id}", deps.Auth.RequireDevice(http.HandlerFunc(handleBlob(deps))))
+	mux.Handle("GET /api/v1/relay/{id}", deps.Auth.RequireDevice(http.HandlerFunc(handleRelay(deps))))
 	mux.Handle("DELETE /api/v1/records/{id}", deps.Auth.RequireDevice(http.HandlerFunc(handleDeleteRecord(deps))))
 	mux.HandleFunc("/", handleNotFound)
 
@@ -289,6 +293,70 @@ func handleBlob(deps Deps) http.HandlerFunc {
 	}
 }
 
+// handleRelay tunnels a P2P session through the server when a direct
+// connection is impossible. Both participants authenticate with their usual
+// device identity and present the same 32-byte session ticket; the server then
+// copies bytes in both directions without ever buffering to disk.
+func handleRelay(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		identity, ok := auth.FromContext(r.Context())
+		if !ok {
+			writeAPIError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
+			return
+		}
+		if deps.Sessions == nil || deps.Relay == nil {
+			writeAPIError(w, http.StatusServiceUnavailable, "relay_unavailable", "relay is not configured")
+			return
+		}
+
+		ticket := strings.TrimSpace(r.Header.Get("X-Session-Ticket"))
+		if ticket == "" {
+			writeAPIError(w, http.StatusUnauthorized, "missing_ticket", "X-Session-Ticket is required")
+			return
+		}
+
+		session, err := deps.Sessions.Verify(r.PathValue("id"), identity.DeviceID, ticket)
+		if err != nil {
+			writeAPIError(w, http.StatusForbidden, "invalid_session", "session ticket is not valid for this device")
+			return
+		}
+
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			writeAPIError(w, http.StatusInternalServerError, "relay_unsupported", "connection cannot be upgraded")
+			return
+		}
+		conn, buffer, err := hijacker.Hijack()
+		if err != nil {
+			deps.Logger.Warn("relay hijack failed", "session_id", session.ID, "error", err)
+			return
+		}
+
+		_, _ = buffer.WriteString(
+			"HTTP/1.1 200 OK\r\n" +
+				"Content-Type: application/octet-stream\r\n" +
+				"Cache-Control: no-store\r\n" +
+				"X-Content-Type-Options: nosniff\r\n" +
+				"Connection: close\r\n\r\n")
+		if err := buffer.Flush(); err != nil {
+			conn.Close()
+			return
+		}
+
+		// A client may pipeline the data plane manifest into the same packet;
+		// preserve anything the HTTP layer already buffered.
+		if buffered := buffer.Reader.Buffered(); buffered > 0 {
+			conn = &bufferedConn{Conn: conn, reader: buffer.Reader}
+		}
+
+		deps.Logger.Info("relay stream opened", "session_id", session.ID, "device_id", identity.DeviceID)
+		if err := deps.Relay.Bridge(session.ID, conn); err != nil {
+			deps.Logger.Warn("relay stream failed", "session_id", session.ID, "error", err)
+			conn.Close()
+		}
+	}
+}
+
 func handleDeleteRecord(deps Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		identity, ok := auth.FromContext(r.Context())
@@ -446,6 +514,17 @@ func (r *responseRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 
 func (r *responseRecorder) Unwrap() http.ResponseWriter {
 	return r.ResponseWriter
+}
+
+// bufferedConn replays bytes that the HTTP server already read from the socket
+// before the handler hijacked the connection.
+type bufferedConn struct {
+	net.Conn
+	reader *bufio.Reader
+}
+
+func (c *bufferedConn) Read(p []byte) (int, error) {
+	return c.reader.Read(p)
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

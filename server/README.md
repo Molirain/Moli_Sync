@@ -1,6 +1,6 @@
-# MoliSync Server（第一阶段：控制面骨架）
+# MoliSync Server
 
-Debian 侧控制面服务，负责 mTLS 身份鉴别、设备在线表与多网卡候选池管理，并为后续的云同步、P2P 会话票据与流式中继提供基础。
+Debian 侧控制面与协同服务：mTLS 身份鉴别、设备在线表、多网卡候选池管理，以及云同步、P2P 会话票据与流式中继。
 
 - Go 1.22+，仅依赖标准库、`gorilla/websocket`、`gopkg.in/yaml.v3`
 - 反代终止 mTLS，服务端只接受来自受信代理的身份 Header
@@ -17,7 +17,8 @@ server/
 ├── internal/config/       # YAML + 环境变量配置、严格校验
 ├── internal/auth/         # 受信反代校验、证书身份解析、上下文注入
 ├── internal/registry/     # 并发安全设备表、候选端点校验
-├── internal/ws/           # WebSocket 连接管理、心跳、在线状态广播
+├── internal/ws/           # WebSocket 连接管理、心跳、在线状态广播、P2P 信令
+├── internal/p2p/          # 一次性会话票据与连接配对中继
 ├── internal/api/          # HTTP 路由与中间件
 ├── Dockerfile             # 多阶段构建，distroless nonroot 运行时
 ├── .dockerignore
@@ -125,7 +126,7 @@ proxy_set_header X-Client-DN $ssl_client_s_dn;
 4. `dn_cn` 模式支持 RFC 2253/4514（`CN=...,O=...`）与 OpenSSL 斜杠格式，正确处理转义逗号、十六进制转义与多值 RDN。
 5. 服务端不使用 `X-Forwarded-For` 做任何安全判断。
 
-Nginx 请使用 `map` 生成 `$connection_upgrade`，并保持 `proxy_request_buffering off` 以便后续中继阶段流式转发。
+Nginx 请使用 `map` 生成 `$connection_upgrade`，并保持 `proxy_request_buffering off` 以便中继阶段流式转发。中继端点需要支持连接升级后的双向裸字节转发（`proxy_http_version 1.1`、关闭响应缓冲）。
 
 ## HTTP 接口
 
@@ -210,21 +211,29 @@ Nginx 请使用 `map` 生成 `$connection_upgrade`，并保持 `proxy_request_bu
 
 ### 当前实现范围
 
-控制面已实现 `hello`、`heartbeat`、`ping`、`publish_record`（仅文字）以及在线状态广播。
+控制面已实现 `hello`、`heartbeat`、`ping`、`publish_record`（文字）以及在线状态广播。
 `publish_record` 会把文字写入 SQLite，并向其他在线设备广播 `sync_record`；发送者收到
 `record_ack`。图片与文件通过 HTTP API 上传，服务端写入 blob 后同样广播 `sync_record`
 元数据。
 
-`request_p2p`、`relay_request` 等消息已在 [proto/sync.proto](../proto/sync.proto) 中定义，
-服务端仍会返回 `unsupported_message`，不会静默丢弃。
+P2P 信令：客户端发送 `open_session`（`to_device_id`，可选 `transfer_name`），服务端生成
+一次性 32 字节票据与 `session_id`（TTL 2 分钟），把同一份 `session_ticket` 帧推给双方，
+其中包含双方的设备信息、候选地址、中继地址与过期时间。目标离线时返回 `peer_unavailable`。
+票据只存在于进程内存，2 分钟后或会话结束后被清除。
+
+中继：`GET /api/v1/relay/{session_id}` 携带 `X-Session-Ticket`。服务端校验调用者必须是会话
+参与方，劫持连接后写入 `200 OK`，等待另一方到达（15 秒超时），随后用 `io.Copy` 双向转发，
+字节流不落盘。中继不做任何明文改写，端到端保护由两端证书与票据校验保证。
+
+`relay_request` 消息仍保留在协议中用于兼容，但当前实现使用 HTTP 中继端点。
 
 ## 安全设计要点
 
 - **受信代理强约束**：启动时强制至少一个 CIDR 且拒绝全网段；不满足则拒绝启动。
 - **身份头完整性**：身份头必须单值、长度受限；指纹格式、CN 转义与字符集严格校验。
 - **最小暴露面**：默认只监听回环；Origin 白名单默认空，浏览器来源一律拒绝，原生客户端（无 Origin）正常放行。
-- **资源上限**：设备数、候选端点数量、单帧大小、消息速率、发送缓冲均有硬上限；慢消费者会被主动断开，避免内存放大。
-- **无持久化依赖**：第一阶段设备表在内存中，进程重启后由客户端重新注册；SQLite、Blob 与中继属于后续里程碑，因此这里没有任何占位实现或 mock。
+- **资源上限**：设备数、候选端点数量、单帧大小、消息速率、发送缓冲、中继并发均有硬上限；慢消费者会被主动断开，避免内存放大。
+- **持久化边界**：设备表与会话票据只在内存中，进程重启后由客户端重新注册；SQLite 与 blob 目录持久化记录，Docker 部署下挂载在 `molisync-data` 卷。
 
 ## 部署建议
 

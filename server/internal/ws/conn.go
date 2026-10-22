@@ -159,6 +159,8 @@ func (c *connection) handle(message inbound) bool {
 		return true
 	case TypePublishRecord:
 		return c.handlePublishRecord(message)
+	case TypeOpenSession:
+		return c.handleOpenSession(message)
 	default:
 		c.sendError(CodeUnsupportedMessage,
 			fmt.Sprintf("unsupported message type %s", strconv.Quote(truncate(message.Type, 32))), false)
@@ -240,6 +242,34 @@ func (c *connection) handleHello(message inbound) bool {
 		"platform", device.Platform,
 		"endpoints", len(device.Endpoints),
 	)
+	return true
+}
+
+func (c *connection) handleOpenSession(message inbound) bool {
+	if !c.registered.Load() {
+		c.sendError(CodeNotRegistered, "send hello before open_session", false)
+		return true
+	}
+
+	to := strings.TrimSpace(message.ToDeviceID)
+	if to == "" || len(to) > 128 {
+		c.sendError(CodeInvalidMessage, "open_session requires to_device_id", false)
+		return true
+	}
+
+	name := strings.TrimSpace(message.TransferName)
+	if len(name) > 200 {
+		name = name[:200]
+	}
+
+	if err := c.hub.OpenSession(c.identity.DeviceID, to, name); err != nil {
+		code := CodeSessionFailed
+		if errors.Is(err, ErrPeerUnavailable) {
+			code = CodePeerUnavailable
+		}
+		c.sendError(code, err.Error(), false)
+		return true
+	}
 	return true
 }
 

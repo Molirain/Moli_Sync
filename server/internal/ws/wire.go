@@ -30,6 +30,8 @@ const (
 	TypePublishRecord = "publish_record"
 	TypeSyncRecord    = "sync_record"
 	TypeRecordAck     = "record_ack"
+	TypeOpenSession   = "open_session"
+	TypeSessionTicket = "session_ticket"
 )
 
 // Presence states broadcast to other devices.
@@ -53,14 +55,18 @@ const (
 	CodeInternalError      = "internal_error"
 	CodeInvalidRecord      = "invalid_record"
 	CodeStorageUnavailable = "storage_unavailable"
+	CodePeerUnavailable    = "peer_unavailable"
+	CodeSessionFailed      = "session_failed"
 )
 
 // inbound is a control-plane frame sent by a client.
 type inbound struct {
-	Type      string               `json:"type"`
-	Device    *deviceMetadata      `json:"device,omitempty"`
-	Endpoints *[]registry.Endpoint `json:"endpoints,omitempty"`
-	Record    *recordPayload       `json:"record,omitempty"`
+	Type         string               `json:"type"`
+	Device       *deviceMetadata      `json:"device,omitempty"`
+	Endpoints    *[]registry.Endpoint `json:"endpoints,omitempty"`
+	Record       *recordPayload       `json:"record,omitempty"`
+	ToDeviceID   string               `json:"to_device_id,omitempty"`
+	TransferName string               `json:"transfer_name,omitempty"`
 }
 
 type deviceMetadata struct {
@@ -122,6 +128,22 @@ type presenceMessage struct {
 	Type   string     `json:"type"`
 	State  string     `json:"state"`
 	Device DeviceView `json:"device"`
+}
+
+// sessionTicketMessage is delivered to both participants of a transfer. The
+// ticket authorizes exactly one (from, to) session and expires quickly.
+type sessionTicketMessage struct {
+	Type         string       `json:"type"`
+	SessionID    string       `json:"session_id"`
+	Ticket       string       `json:"ticket"`
+	FromDeviceID string       `json:"from_device_id"`
+	ToDeviceID   string       `json:"to_device_id"`
+	From         DeviceView   `json:"from"`
+	To           DeviceView   `json:"to"`
+	Devices      []DeviceView `json:"devices"`
+	RelayURL     string       `json:"relay_url"`
+	ExpiresAt    int64        `json:"expires_at"`
+	TransferName string       `json:"transfer_name,omitempty"`
 }
 
 // recordPayload is the client-supplied sync record in a publish_record frame.

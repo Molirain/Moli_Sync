@@ -22,9 +22,13 @@ import (
 
 	"github.com/molirain/molisync/server/internal/auth"
 	"github.com/molirain/molisync/server/internal/config"
+	"github.com/molirain/molisync/server/internal/p2p"
 	"github.com/molirain/molisync/server/internal/registry"
 	"github.com/molirain/molisync/server/internal/store"
 )
+
+// ErrPeerUnavailable reports that the target device is not online.
+var ErrPeerUnavailable = errors.New("ws: peer device is not online")
 
 // Options configures connection limits, liveness and origin checking.
 type Options struct {
@@ -49,6 +53,8 @@ type Hub struct {
 	options        Options
 	devices        *registry.Registry
 	records        *store.Store
+	sessions       *p2p.Store
+	relayPath      string
 	logger         *slog.Logger
 	now            func() time.Time
 	upgrader       websocket.Upgrader
@@ -92,6 +98,7 @@ func NewHub(options Options, devices *registry.Registry, logger *slog.Logger) (*
 		logger:         logger,
 		now:            time.Now,
 		allowedOrigins: allowedOrigins,
+		relayPath:      "/api/v1/relay",
 		ctx:            ctx,
 		cancel:         cancel,
 		conns:          make(map[*connection]struct{}),
@@ -154,6 +161,104 @@ func (h *Hub) Devices() []DeviceView {
 // starts serving requests.
 func (h *Hub) SetStore(records *store.Store) {
 	h.records = records
+}
+
+// SetSessions attaches the P2P session store used to issue transfer tickets.
+func (h *Hub) SetSessions(sessions *p2p.Store) {
+	h.sessions = sessions
+}
+
+// SetRelayPath records the HTTP path clients should use for relayed streams.
+func (h *Hub) SetRelayPath(path string) {
+	if strings.TrimSpace(path) != "" {
+		h.relayPath = strings.TrimSpace(path)
+	}
+}
+
+// SendToDevice enqueues a message on every control connection of a device.
+// It reports how many connections accepted the frame.
+func (h *Hub) SendToDevice(deviceID string, payload any) int {
+	message, err := newOutbound(payload)
+	if err != nil {
+		h.logger.Error("encode control message", "device_id", deviceID, "error", err)
+		return 0
+	}
+
+	h.mu.RLock()
+	connections := make([]*connection, 0, len(h.byDevice[deviceID]))
+	for c := range h.byDevice[deviceID] {
+		connections = append(connections, c)
+	}
+	h.mu.RUnlock()
+
+	delivered := 0
+	for _, c := range connections {
+		if c.enqueue(message) {
+			delivered++
+		}
+	}
+	return delivered
+}
+
+// OpenSession creates a transfer ticket and pushes it to both participants.
+func (h *Hub) OpenSession(from string, to string, transferName string) error {
+	if h.sessions == nil {
+		return errors.New("p2p sessions are not configured")
+	}
+	if from == to {
+		return errors.New("a transfer needs a different target device")
+	}
+	if _, ok := h.devices.Get(to); !ok {
+		return ErrPeerUnavailable
+	}
+
+	h.mu.RLock()
+	online := len(h.byDevice[to]) > 0
+	h.mu.RUnlock()
+	if !online {
+		return ErrPeerUnavailable
+	}
+
+	session, err := h.sessions.Open(from, to)
+	if err != nil {
+		return err
+	}
+
+	fromDevice, _ := h.devices.Get(from)
+	toDevice, _ := h.devices.Get(to)
+	fromView := newDeviceView(fromDevice)
+	toView := newDeviceView(toDevice)
+
+	message := sessionTicketMessage{
+		Type:         TypeSessionTicket,
+		SessionID:    session.ID,
+		Ticket:       p2p.EncodeTicket(session.Ticket),
+		FromDeviceID: from,
+		ToDeviceID:   to,
+		From:         fromView,
+		To:           toView,
+		Devices:      []DeviceView{fromView, toView},
+		RelayURL:     h.relayPath + "/" + session.ID,
+		ExpiresAt:    session.ExpiresAt.UnixMilli(),
+		TransferName: transferName,
+	}
+
+	if h.SendToDevice(from, message) == 0 {
+		h.sessions.Close(session.ID)
+		return ErrPeerUnavailable
+	}
+	if h.SendToDevice(to, message) == 0 {
+		h.sessions.Close(session.ID)
+		return ErrPeerUnavailable
+	}
+
+	h.logger.Info("p2p session opened",
+		"session_id", session.ID,
+		"from", from,
+		"to", to,
+		"expires_at", session.ExpiresAt,
+	)
+	return nil
 }
 
 // DeviceName returns the registered display name of a device, or an empty

@@ -123,6 +123,9 @@ message PublishRecordRequest {
 
 // P2PTransferOffer asks the server to authorize a direct transfer by issuing
 // a SessionTicket to both devices.
+//
+// Wire (JSON, both clients implemented): {"type":"open_session",
+// "to_device_id":"...","transfer_name":"optional"}.
 message P2PTransferOffer {
   // Client generated UUID v7 used to correlate the transfer.
   string session_id = 1;
@@ -132,6 +135,7 @@ message P2PTransferOffer {
   string target_device_id = 3;
   repeated Endpoint source_endpoints = 4;
   repeated FileEntry files = 5;
+  string transfer_name = 6;
 }
 
 // RelayRequest asks for a transparent byte stream relay when direct dialing
@@ -219,6 +223,12 @@ message ServerError {
 }
 
 // SessionTicket authorizes a direct P2P transfer.
+//
+// Wire (JSON): {"type":"session_ticket","session_id":"...","ticket":"<base64url
+// 32 bytes>","from_device_id":"...","to_device_id":"...","devices":[DeviceInfo],
+// "relay_url":"/api/v1/relay/<id>","expires_at":<unix-ms>,"transfer_name":"..."}
+// Clients present the raw 32-byte ticket in the data-plane manifest and in the
+// X-Session-Ticket header when the relay path is used.
 message SessionTicket {
   string session_id = 1;
   // Exactly 32 cryptographically random bytes. Both devices use it as a

@@ -13,10 +13,12 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/molirain/molisync/server/internal/api"
 	"github.com/molirain/molisync/server/internal/auth"
 	"github.com/molirain/molisync/server/internal/config"
+	"github.com/molirain/molisync/server/internal/p2p"
 	"github.com/molirain/molisync/server/internal/registry"
 	"github.com/molirain/molisync/server/internal/store"
 	"github.com/molirain/molisync/server/internal/ws"
@@ -135,11 +137,20 @@ func serve(cfg *config.Config, logger *slog.Logger) error {
 	}
 	hub.SetStore(records)
 
+	sessions, err := p2p.NewStore(2 * time.Minute)
+	if err != nil {
+		return err
+	}
+	hub.SetSessions(sessions)
+	hub.SetRelayPath("/api/v1/relay")
+
 	router := api.NewRouter(api.Deps{
-		Auth:   authMiddleware,
-		Hub:    hub,
-		Store:  records,
-		Logger: logger,
+		Auth:     authMiddleware,
+		Hub:      hub,
+		Store:    records,
+		Sessions: sessions,
+		Relay:    p2p.NewRelay(15*time.Second, logger),
+		Logger:   logger,
 	})
 
 	signalContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
