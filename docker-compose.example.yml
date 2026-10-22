@@ -1,0 +1,85 @@
+# MoliSync server — Docker Compose example.
+#
+# This file is a template. Copy it to docker-compose.yml before use:
+#
+#   cp docker-compose.example.yml docker-compose.yml
+#   docker compose up -d
+#
+# Only the Go control plane is defined here. Your existing reverse proxy
+# (Nginx, NPM, Caddy, ...) must join the "molisync-internal" network, terminate
+# mTLS, and forward the verified identity headers. Do not publish port 9520 to
+# the host or the internet.
+
+name: molisync
+
+services:
+  server:
+    # Release images are built by .github/workflows/server-image.yml.
+    # To build from this checkout instead, comment out "image" and uncomment
+    # "build" below.
+    image: ghcr.io/molirain/molisync-server:latest
+    # build:
+    #   context: ./server
+
+    container_name: molisync-server
+    restart: unless-stopped
+
+    environment:
+      # Listen on all interfaces inside the container; the port is only
+      # reachable over the private Compose network.
+      MOLISYNC_SERVER_LISTEN: "0.0.0.0:9520"
+
+      # Only the reverse proxy may talk to this service. Keep this equal to the
+      # "molisync-internal" subnet and do not attach other containers to it:
+      # any peer in this range can assert an mTLS identity.
+      MOLISYNC_PROXY_TRUSTED_CIDRS: "172.28.0.0/24"
+
+      # Headers the proxy must set from the verified client certificate.
+      MOLISYNC_PROXY_VERIFY_HEADER: "X-Client-Verify"
+      MOLISYNC_PROXY_FINGERPRINT_HEADER: "X-Client-Fingerprint"
+      MOLISYNC_PROXY_DN_HEADER: "X-Client-DN"
+      MOLISYNC_PROXY_REQUIRED_VERIFY_VALUE: "SUCCESS"
+
+      # "fingerprint" (recommended) or "dn_cn".
+      MOLISYNC_AUTH_DEVICE_ID_SOURCE: "fingerprint"
+
+      MOLISYNC_LOG_LEVEL: "info"
+      MOLISYNC_LOG_FORMAT: "json"
+
+    # No "ports": the proxy is the only ingress.
+    expose:
+      - "9520"
+
+    # Optional YAML configuration. Environment variables still win over it.
+    # volumes:
+    #   - ./server/config.yaml:/config.yaml:ro
+    # command: ["-config", "/config.yaml"]
+
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+    healthcheck:
+      test:
+        - CMD
+        - /usr/local/bin/molisync-server
+        - -healthcheck-url
+        - http://127.0.0.1:9520/healthz
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+
+    networks:
+      - control
+
+networks:
+  control:
+    name: molisync-internal
+    driver: bridge
+    ipam:
+      config:
+        # Must match MOLISYNC_PROXY_TRUSTED_CIDRS above.
+        - subnet: 172.28.0.0/24

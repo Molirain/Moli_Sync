@@ -28,6 +28,7 @@ client-android/.cxx/
 server/config.yaml
 server/config.local.yaml
 client-windows/client.json
+docker-compose.yml
 *.local.yaml
 *.user
 
