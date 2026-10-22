@@ -7,6 +7,20 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+val releaseSigningValues = listOf(
+    providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull,
+    providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull,
+    providers.environmentVariable("ANDROID_KEY_ALIAS").orNull,
+    providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull,
+)
+val hasReleaseSigning = releaseSigningValues.all { !it.isNullOrBlank() }
+val hasPartialReleaseSigning = releaseSigningValues.any { !it.isNullOrBlank() } && !hasReleaseSigning
+
+check(!hasPartialReleaseSigning) {
+    "Release signing requires ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, " +
+        "ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD."
+}
+
 android {
     namespace = "com.molirain.molisync"
     compileSdk = 35
@@ -15,17 +29,37 @@ android {
         applicationId = "com.molirain.molisync"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = providers.environmentVariable("ANDROID_VERSION_CODE")
+            .orElse("1")
+            .get()
+            .toInt()
+        versionName = providers.environmentVariable("ANDROID_VERSION_NAME")
+            .orElse("0.1.0")
+            .get()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
+    }
+
+    if (hasReleaseSigning) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(requireNotNull(releaseSigningValues[0]))
+                storePassword = requireNotNull(releaseSigningValues[1])
+                keyAlias = requireNotNull(releaseSigningValues[2])
+                keyPassword = requireNotNull(releaseSigningValues[3])
+                storeType = "PKCS12"
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

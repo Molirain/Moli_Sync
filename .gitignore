@@ -21,6 +21,8 @@ client-android/.cxx/
 *.aab
 *.jks
 *.keystore
+*.p12
+*.pfx
 
 # Local configuration (contains deployment specific proxy/network settings)
 server/config.yaml

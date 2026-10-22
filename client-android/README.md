@@ -28,6 +28,51 @@ cd client-android
 Windows 使用 `gradlew.bat`。Debug APK 位于
 `app/build/outputs/apk/debug/app-debug.apk`。
 
+## Release 签名与 GitHub Actions
+
+仓库中的 `.github/workflows/android.yml` 会在 PR 和 `main`/`master` push 上运行
+Debug 构建、单元测试与 Lint。推送符合 `vMAJOR.MINOR.PATCH` 格式的 tag（例如 `v0.2.0`）
+时，Workflow 会使用 GitHub Secrets 签名 Release APK、验证 APK 签名，并将 APK 附加到对应
+GitHub Release。版本名取自 tag，Android `versionCode` 使用该 workflow 的运行序号。
+
+### 配置 GitHub Secrets
+
+在 GitHub 仓库页面进入 **Settings → Secrets and variables → Actions → New repository secret**，
+添加以下仓库 Secrets：
+
+| Secret | 内容 |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | `molisync-release.p12` 文件的单行 Base64 编码 |
+| `ANDROID_KEYSTORE_PASSWORD` | 创建 PKCS#12 时使用的 keystore 密码 |
+| `ANDROID_KEY_ALIAS` | `molisync` |
+| `ANDROID_KEY_PASSWORD` | 私钥密码；你给出的 `keytool` 命令未单独设置 `-keypass`，通常与 keystore 密码相同 |
+
+Windows PowerShell 可在本机生成 Base64 字符串（不要把输出贴到聊天、issue 或提交到仓库）：
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes(".\molisync-release.p12"))
+```
+
+把输出直接粘贴到 `ANDROID_KEYSTORE_BASE64` Secret。keystore 文件和密码都不要提交；项目
+`.gitignore` 已忽略 `.p12` / `.pfx` 密钥库。Workflow 只在 `v*` tag 的 Release job 中读取这些
+Secrets，不会在 PR 验证 job 中暴露它们。
+
+### 在哪里签名
+
+- **自动签名（推荐）**：配置以上 4 个 GitHub Secrets 后，推送 `v0.2.0` 这样的 tag。完成后在
+  仓库的 **Releases** 页面下载签名 APK。APK 的签名证书由你生成的
+  `molisync-release.p12` 提供。
+- **Android Studio 手动签名**：选择 **Build → Generate Signed Bundle / APK… → APK**，选择
+  `molisync-release.p12`、store type `PKCS12`、alias `molisync`，输入 keystore/key 密码，
+  然后生成 Release APK。
+- **本机 Gradle 签名**：设置 `ANDROID_KEYSTORE_PATH`、`ANDROID_KEYSTORE_PASSWORD`、
+  `ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD` 环境变量后运行
+  `./gradlew :app:assembleRelease`（Windows 使用 `gradlew.bat`）。未配置签名变量时，
+  本机 Release 仍按默认行为生成 unsigned APK；只设置了一部分签名变量会直接报错。
+
+请将这份长期使用的发布 keystore 安全离线备份。丢失或更换应用签名密钥会影响用户升级；
+签名 keystore 与应用运行时从 Android KeyChain 选择的 mTLS 客户端证书是两种不同用途的密钥。
+
 ## 首次配置
 
 1. 打开应用，输入服务器基地址，例如 `https://sync.example.com`。
