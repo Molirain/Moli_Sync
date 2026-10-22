@@ -51,7 +51,6 @@ object MtlsClientFactory {
         val base = serverUrl.toHttpUrl()
         require(base.isHttps) { "server URL must use https" }
         return base.newBuilder()
-            .scheme("wss")
             .addPathSegment("api")
             .addPathSegment("v1")
             .addPathSegment("ws")
