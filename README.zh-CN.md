@@ -13,8 +13,8 @@ MoliSync 是一个开源项目，用于在你自己掌控的设备之间传输�
 | 路径 | 组件 |
 | --- | --- |
 | [`server/`](server/) | Go 控制面服务：受信反代鉴权、设备在线表、WebSocket 在线状态与 HTTP API，并提供容器镜像。 |
-| [`client-windows/`](client-windows/) | C# / .NET 8 + Avalonia Windows 桌面客户端：自动读取系统证书、三栏云同步、剪贴板/占位处理、Range 下载、数据目录迁移与开机自启。 |
-| [`client-android/`](client-android/) | Kotlin / Jetpack Compose Android 客户端：KeyChain mTLS、系统分享、流式发送与前台数据同步服务。 |
+| [`client-windows/`](client-windows/) | C# / .NET 8 + Avalonia Windows 桌面客户端：自动读取系统证书、三栏云同步、剪贴板/占位处理、Range 下载、图片缩略图与查看器、在线设备与 IP 详情、P2P 收发、数据目录迁移与开机自启。 |
+| [`client-android/`](client-android/) | Kotlin / Jetpack Compose Android 客户端：KeyChain mTLS、系统分享、流式发送、P2P 收发与前台数据同步服务、MediaStore 相册归档。 |
 | [`proto/sync.proto`](proto/sync.proto) | 带版本的控制面与数据面协议定义。 |
 | [`docker-compose.example.yml`](docker-compose.example.yml) | 服务端容器加固后的 Compose 模板。 |
 | [`assets/branding/`](assets/branding/) | 统一图标源文件、PNG 渲染与可复现的生成脚本。 |
@@ -34,25 +34,29 @@ MoliSync 是一个开源项目，用于在你自己掌控的设备之间传输�
                   Go 控制面 + 持久化存储
                   在线设备 · 记录 · blob
 
-              计划中的数据面：P2P 直连，其次加密中继
+      数据面：先并发探测 LAN/VPN 候选地址直连 P2P，
+              1.2 秒内无果则回退服务端加密中继
 ```
 
 - **控制面：**客户端使用客户端证书连接反向代理；代理执行 mTLS 校验，并向 Go 服务透传校验结果、证书指纹和 Subject。
 - **设备身份：**默认以客户端证书的 SHA-256 小写指纹作为稳定的 `DeviceID`。
 - **反向代理信任边界：**服务端只信任配置白名单内的代理 CIDR。代理必须先清除客户端自带的身份头，再写入自行验证的头。
-- **数据面：**协议已定义分帧流式数据格式；P2P 信令、会话票据及中继仍属于计划功能，服务端尚未端到端实现。
+- **数据面：**服务端签发一次性 32 字节会话票据并推送给双方；两端用系统证书完成双向 TLS 后按 49 字节定长帧流式传输，P2P 不可达时服务端以 `io.Copy` 零落盘中继同一会话。
 - **云端持久化：**文字（≤64 KiB）存入 SQLite；图片与文件流式写入 blob 目录，下载支持 HTTP Range。记录不自动过期，且只有发送者能删除。Docker 部署下两者都在 `molisync-data` 卷内。
 
 ## 同步规则
 
 | 内容 | 行为 |
 | --- | --- |
-| 文字 | ≤64 KiB，始终保存在服务器，所有已授权设备可见，一键复制 |
+| 文字 | ≤64 KiB，始终保存在服务器，所有已授权设备可见，一键复制；客户端长文本可展开全文并选区复制 |
 | 图片/文件 ≤ 阈值 | 每次由客户端询问：存服务器，或 P2P 直连 |
 | 图片/文件 > 阈值 | 只能 P2P |
 | 默认阈值 | 15 MiB，Android 客户端可在 5–50 MiB 之间调整 |
 | 服务端保留 | 永久，无自动清理、暂无配额 |
 | 下载 | `GET /api/v1/blobs/{id}`，支持 Range 断点续传 |
+| P2P 直连 | 客户端广告 LAN/VPN 候选地址，收方并发探测（300 ms 阶梯），1.2 秒内不通则回退中继 |
+| P2P 中继 | 服务端只做透明字节流转发，端到端加密由两端自行保证 |
+| Android 归档 | 图片进入相册 `Pictures/MoliSync`，文件进入 `Download/MoliSync` |
 
 Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服务端提供一组精简 HTTP API 与 WebSocket 通知：
 
@@ -63,19 +67,25 @@ Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服
 | `POST /api/v1/records/blob` | 流式上传图片/文件（`kind`、`name`、`mime`，可选 `X-Blake3`） |
 | `GET /api/v1/blobs/{id}` | 下载 blob，支持 Range |
 | `DELETE /api/v1/records/{id}` | 删除自己的记录与 blob |
+| `GET /api/v1/relay/{session_id}` | 中继字节流（`X-Session-Ticket`，连接劫持后双向转发） |
 
 ## 实现状态
 
 | 能力 | 状态 |
 | --- | --- |
-| Go 服务端配置、受信代理 mTLS 身份、设备表、WebSocket 在线状态与 API | 基础已实现 |
+| Go 服务端配置、受信代理 mTLS 身份、设备表、WebSocket 在线状态与 API | 已实现 |
 | 云端持久化：SQLite 元数据、blob 目录、Range 下载、仅发送者可删除、Docker 卷 | 已实现 |
-| 同步记录、P2P 票据、中继与数据帧的协议定义 | 协议已定义；P2P 与中继处理器尚未完成 |
-| Windows Avalonia 桌面界面、自动读取系统证书、三栏云同步、Range 下载、数据目录迁移与开机自启 | 核心已实现；安装包构建待完善 |
+| 同步记录、P2P 票据、中继与数据帧的协议定义 | 已实现（`proto/sync.proto` 与 JSON 线上格式一致） |
+| P2P 信令：一次性 32 字节会话票据、在线设备候选地址下发、中继地址 | 已实现 |
+| P2P 中继：连接配对 + `io.Copy` 零落盘双向转发、15 秒配对超时 | 已实现 |
+| Windows P2P 监听/发送、Happy Eyeballs 并发探测、中继回退、在线设备与 IP 详情 | 已实现 |
+| Android P2P 监听/发送、中继回退、MediaStore 归档、设备名称、长按操作 | 已实现 |
+| Windows Avalonia 桌面界面、自动读取系统证书、三栏云同步、图片缩略图与查看器、Range 下载、数据目录迁移与开机自启 | 已实现 |
 | Android KeyChain mTLS、三栏云界面、流式 HTTP 上传、Range 下载、系统分享、基于 PFD 的发送、BLAKE3 分帧与前台服务 | 已实现 |
-| 端到端 P2P 同步、票据交换、可互操作的对端监听、中继 | 尚未完成 |
+| 端到端 P2P 同步、票据交换、可互操作的对端监听、中继 | 已实现（两端均已接入，仍需真实网络回归） |
+| 客户端自动检查更新 | 暂缓 |
 
-文字同步已经可以跨设备通过服务器完成，阈值内的图片/文件也能从任意已授权客户端存取。P2P 仍不可用：服务端还缺 P2P 信令、会话票据与中继管道，因此 Android 客户端会明确失败而不会静默降级。Windows 客户端已经具备与 Android 一致的上传、下载与三栏界面。
+三端的文字同步走服务器；阈值内的图片/文件可存入服务器并由任意授权设备下载，也可以选择直接 P2P。P2P 不可达时自动回退服务端中继，端侧仍持有会话票据做校验。Windows 与 Android 都支持自定义设备名、查看在线设备及其 LAN/VPN 地址。
 
 ## Docker 快速开始
 

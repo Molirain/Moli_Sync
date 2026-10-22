@@ -13,8 +13,8 @@ MoliSync is an open-source project for moving files and synchronized data betwee
 | Path | Component |
 | --- | --- |
 | [`server/`](server/) | Go control-plane service: trusted reverse-proxy authentication, device registry, WebSocket presence and HTTP API. Ships as a container image. |
-| [`client-windows/`](client-windows/) | C# / .NET 8 + Avalonia Windows desktop client: automatic certificate-store access, three-tab cloud sync, clipboard/placeholder handling, Range download, data-directory migration and autostart. |
-| [`client-android/`](client-android/) | Kotlin / Jetpack Compose Android client: KeyChain mTLS, system share intents, streaming sender and foreground data-sync service. |
+| [`client-windows/`](client-windows/) | C# / .NET 8 + Avalonia Windows desktop client: automatic certificate-store access, three-tab cloud sync, clipboard/placeholder handling, Range download, image thumbnails and viewer, online-device and IP details, P2P send/receive, data-directory migration and autostart. |
+| [`client-android/`](client-android/) | Kotlin / Jetpack Compose Android client: KeyChain mTLS, system share intents, streaming sender, P2P send/receive, foreground data-sync service and MediaStore archiving. |
 | [`proto/sync.proto`](proto/sync.proto) | Versioned control-plane and data-plane protocol definition. |
 | [`docker-compose.example.yml`](docker-compose.example.yml) | Hardened Compose template for the server container. |
 | [`assets/branding/`](assets/branding/) | Shared icon source, PNG renders and the reproducible renderer. |
@@ -34,25 +34,29 @@ MoliSync is an open-source project for moving files and synchronized data betwee
                  Go control plane + durable store
                  presence · records · blobs
 
-          Planned data plane: direct P2P, then encrypted relay
+   Data plane: race the LAN/VPN candidates for a direct P2P link;
+   after 1.2 s fall back to the server's encrypted relay
 ```
 
 - **Control plane:** clients authenticate to a reverse proxy using client certificates. The proxy validates mTLS and forwards the verification result, certificate fingerprint, and subject to the Go service.
 - **Device identity:** by default, the server uses the lowercase SHA-256 fingerprint of the client certificate as the stable `DeviceID`.
 - **Proxy trust boundary:** the server accepts identity headers only from configured trusted proxy CIDRs. The proxy must remove client-supplied copies of those headers before setting its own values.
-- **Data plane:** the protocol defines framed streaming data. Direct P2P coordination, session-ticket issuance, and relay are planned; they are not yet implemented end to end by the server.
+- **Data plane:** the server issues a single-use 32-byte session ticket to both peers. They complete mutual TLS with their system certificates and stream fixed 49-byte frames; when no candidate answers, the server relays the same session with `io.Copy` and never touches disk.
 - **Durable cloud records:** text (up to 64 KiB) is stored in SQLite. Images and files are streamed into a blob directory and downloaded with HTTP Range support. Records never expire automatically and can only be deleted by their sender. In Docker both live in the `molisync-data` volume.
 
 ## Sync model
 
 | Content | Behaviour |
 | --- | --- |
-| Text | Up to 64 KiB, always stored on the server, visible to every authorized device, one tap to copy |
+| Text | Up to 64 KiB, always stored on the server, visible to every authorized device, one tap to copy; long text expands into a selectable full-text sheet |
 | Image / file ≤ threshold | The client asks every time: store on the server, or send peer-to-peer |
 | Image / file > threshold | Peer-to-peer only |
 | Default threshold | 15 MiB, adjustable at runtime between 5 and 50 MiB inside the Android client |
 | Server retention | Indefinite; no automatic cleanup, no quota yet |
 | Download | `GET /api/v1/blobs/{id}` with Range resume |
+| Direct P2P | Clients advertise LAN/VPN candidates; the receiver races them (300 ms steps) and falls back to relay after 1.2 s |
+| Relay | Transparent byte forwarding only; end-to-end protection stays between the two clients |
+| Android archive | Images land in the gallery folder `Pictures/MoliSync`, files in `Download/MoliSync` |
 
 The Android client implements this model in three tabs (text, images, files). The server exposes it as a small HTTP API plus WebSocket notifications:
 
@@ -63,19 +67,25 @@ The Android client implements this model in three tabs (text, images, files). Th
 | `POST /api/v1/records/blob` | Stream an image/file body (`kind`, `name`, `mime`, optional `X-Blake3`) |
 | `GET /api/v1/blobs/{id}` | Download a blob, with Range support |
 | `DELETE /api/v1/records/{id}` | Delete your own record and blob |
+| `GET /api/v1/relay/{session_id}` | Relay byte stream (`X-Session-Ticket`, hijacked and forwarded both ways) |
 
 ## Implementation status
 
 | Capability | Status |
 | --- | --- |
-| Go server configuration, trusted-proxy mTLS identity, device registry, WebSocket presence and API | Implemented foundation |
+| Go server configuration, trusted-proxy mTLS identity, device registry, WebSocket presence and API | Implemented |
 | Durable text/image/file records: SQLite metadata, blob directory, Range download, owner-only delete, Docker volume | Implemented |
-| Protocol definition for sync records, P2P tickets, relay and data frames | Defined; P2P and relay handlers are incomplete |
-| Windows Avalonia desktop UI, automatic Windows-store certificate selection, three-tab cloud sync, Range download, data-directory migration and autostart | Core implemented; installer packaging still in progress |
+| Protocol definition for sync records, P2P tickets, relay and data frames | Implemented; `proto/sync.proto` matches the JSON wire format |
+| P2P signalling: single-use 32-byte session tickets, candidate pool distribution, relay URL | Implemented |
+| P2P relay: connection pairing, `io.Copy` forwarding with no disk writes, 15 s pairing timeout | Implemented |
+| Windows P2P listener/sender, Happy Eyeballs candidate race, relay fallback, online devices with IP details | Implemented |
+| Android P2P listener/sender, relay fallback, MediaStore archiving, custom device name, long-press actions | Implemented |
+| Windows Avalonia desktop UI, automatic Windows-store certificate selection, three-tab cloud sync, image thumbnails and viewer, Range download, data-directory migration and autostart | Implemented |
 | Android KeyChain mTLS, three-tab cloud UI, streaming HTTP upload, Range download, share intents, PFD-based sender, BLAKE3 framing and foreground service | Implemented |
-| End-to-end P2P sync, ticket exchange, interoperable peer listener, relay | Not yet complete |
+| End-to-end P2P sync, ticket exchange, interoperable peer listener, relay | Implemented on both clients; still needs real-network regression |
+| Client-side update check | Deferred |
 
-Text sync across devices works today through the server, and images/files up to the configured limit can be stored and downloaded from any authorized client. P2P remains unavailable: the Android client fails explicitly instead of silently downgrading, because the server still needs P2P signaling, session tickets and a relay pipe. The Windows client now has the same upload, download and three-tab UI as Android.
+Text sync across devices runs through the server. Images and files below the threshold can be stored on the server and downloaded by any authorized client, or sent directly peer-to-peer. When no candidate is reachable the clients fall back to the server relay, and the session ticket is still verified on the receiving side. Both desktop and mobile clients let you rename the device and inspect every LAN/VPN address of an online peer.
 
 ## Quick start with Docker
 
