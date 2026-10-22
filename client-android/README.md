@@ -228,7 +228,8 @@ app/src/main/java/com/molirain/molisync/
 
 - BLAKE3 空输入与 `"abc"` 标准向量、分块哈希、整文件哈希；
 - 49 字节帧头的大端字段、部分 payload、ABORT 帧截断；
-- `TransferRequest` JSON 往返、指纹/端点/URI/大小上限校验；
+- P2P manifest 往返、长度前缀校验、分片读取上限；
+- `TransferRequest` JSON 往返、指纹/端点/URI/大小上限校验、仅中继模式；
 - 控制面 snake_case DTO 映射、设备端点过滤与优先级；
 - 云端记录 DTO 解析（扁平记录、可选字段、错误信封）；
 - 文件名净化与扩展名格式化；
@@ -238,7 +239,7 @@ app/src/main/java/com/molirain/molisync/
 ./gradlew :app:testDebugUnitTest
 ```
 
-共 38 个测试。Android 特有的 KeyChain、PFD、通知、前台服务与真实 mTLS 上传需要在
+共 44 个测试。Android 特有的 KeyChain、PFD、通知、前台服务与真实 mTLS 上传需要在
 真机/模拟器上做集成验证，JVM 单元测试不能替代这些系统交互。
 
 ## 安全约束

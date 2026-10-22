@@ -219,13 +219,14 @@ Avalonia 采用与 Android 一致的三栏结构：文字、图片、文件，�
 dotnet test MoliSync.Client.sln -c Release
 ```
 
-63 项测试，覆盖：
+76 项测试，覆盖：
 
 - 证书筛选：正确签发、CA 证书拒绝、过期、EKU、无私钥、同名伪造 CA、链校验、指纹钉扎、最新证书选择
 - 服务端证书钉扎：错误 CA 拒绝、正确 CA 接受、主机名不匹配拒绝
 - Happy Eyeballs：LAN 直连、LAN 失败后 VPN 延迟启动、超时降级、全部失败降级、无回调异常、取消、候选去重
 - Range 下载：续传、服务端忽略 Range、完整 `.part` 直接落位、零字节、路径穿越净化、大小不符、进度单调
 - P2P 分帧：manifest 往返与 snake_case 字段、数据帧往返、控制帧类型、超长 payload 与非法 manifest 长度拒绝
+- 私有地址枚举：仅接受 RFC1918 与 100.64/10，排除回环、链路本地与公网地址
 - 事件分发：TEXT 剪贴板、重复记录、FILE/IMAGE 占位、缺失元数据、欢迎帧心跳钳制、在线事件、剪贴板失败不丢记录
 
 已通过 `dotnet publish -c Release -r win-x64` 的 NativeAOT 实际编译验证。

@@ -45,6 +45,16 @@ public partial class TextPage : UserControl
         }
     }
 
+    private async void Expand_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Control { DataContext: RecordItem item } ||
+            TopLevel.GetTopLevel(this) is not Window owner)
+        {
+            return;
+        }
+        await new TextDetailWindow(item).ShowDialog(owner);
+    }
+
     private async void Copy_OnClick(object? sender, RoutedEventArgs e)
     {
         if (sender is Control { DataContext: RecordItem item } &&
