@@ -13,12 +13,14 @@ Debian 侧控制面服务，负责 mTLS 身份鉴别、设备在线表与多网�
 
 ```text
 server/
-├── cmd/server/            # 进程入口、优雅关闭
+├── cmd/server/            # 进程入口、健康探测、优雅关闭
 ├── internal/config/       # YAML + 环境变量配置、严格校验
 ├── internal/auth/         # 受信反代校验、证书身份解析、上下文注入
 ├── internal/registry/     # 并发安全设备表、候选端点校验
 ├── internal/ws/           # WebSocket 连接管理、心跳、在线状态广播
 ├── internal/api/          # HTTP 路由与中间件
+├── Dockerfile             # 多阶段构建，distroless nonroot 运行时
+├── .dockerignore
 ├── config.example.yaml    # 带注释的完整配置示例
 └── go.mod
 ```
@@ -39,6 +41,29 @@ go vet ./...
 - `-config` 默认 `config.yaml`；显式指定但文件不存在会直接退出。
 - 未显式指定且文件不存在时，使用内置默认值 + `MOLISYNC_*` 环境变量（容器场景）。
 - `-version` 打印由 `-ldflags "-X main.version=..."` 注入的版本号。
+- `-healthcheck-url` 对运行中的实例执行一次 `/healthz` 探测后退出，供无 shell 的容器镜像做健康检查。
+
+## Docker
+
+镜像由 [`.github/workflows/server-image.yml`](../.github/workflows/server-image.yml) 自动构建并推送到
+`ghcr.io/molirain/molisync-server`（`latest`、版本标签、`sha-<commit>`），支持 `linux/amd64` 与
+`linux/arm64`。运行时基于 distroless，以 `nonroot` 运行，不含 shell 和包管理器。
+
+```bash
+docker build -t molisync-server:dev .
+docker run --rm -p 127.0.0.1:9520:9520 \
+  -e MOLISYNC_PROXY_TRUSTED_CIDRS=127.0.0.1/32 \
+  molisync-server:dev
+```
+
+仓库根目录的 [`docker-compose.example.yml`](../docker-compose.example.yml) 是推荐的部署模板：
+
+- 服务端只加入私有网络 `molisync-internal`（`172.28.0.0/24`），不发布端口；
+- `MOLISYNC_PROXY_TRUSTED_CIDRS` 与该子网一致，**只有反向代理可以加入该网络**，否则任何容器都能伪造身份头；
+- `read_only`、`cap_drop: [ALL]`、`no-new-privileges`，并用镜像内置的 `-healthcheck-url` 做健康检查。
+
+镜像默认 `MOLISYNC_SERVER_LISTEN=0.0.0.0:9520`，以便反代容器访问；不要把这个端口发布到宿主机或公网。
+如需 YAML 配置，挂载到 `/config.yaml:ro` 并设置 `command: ["-config", "/config.yaml"]`。
 
 ## 配置
 
