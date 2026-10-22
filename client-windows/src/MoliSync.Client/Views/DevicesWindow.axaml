@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:svc="using:MoliSync.Client.Services"
+        x:Class="MoliSync.Client.Views.DevicesWindow"
+        Width="620" Height="620" MinWidth="480" MinHeight="420"
+        Title="在线设备"
+        Background="{StaticResource PaperBrush}">
+  <Grid RowDefinitions="Auto,*">
+    <Border Background="{StaticResource PineBrush}" Padding="24,20">
+      <StackPanel Spacing="4">
+        <TextBlock Text="在线设备" Foreground="#F7F3E8" FontSize="20" FontWeight="Bold" />
+        <TextBlock x:Name="SummaryText" Foreground="#BFD6CB" FontSize="12" />
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer Grid.Row="1">
+      <StackPanel Margin="20,16,20,20" Spacing="10">
+        <TextBlock Text="点击任意设备可展开其上报的所有 LAN / VPN 候选地址。P2P 直连只使用这些地址。"
+                   Classes="caption" TextWrapping="Wrap" />
+        <ItemsControl x:Name="DeviceList">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="svc:DeviceCard">
+              <Border Classes="panel" Margin="0,0,0,10">
+                <StackPanel Spacing="8">
+                  <Expander>
+                    <Expander.Header>
+                      <StackPanel Spacing="2">
+                        <TextBlock Text="{Binding NameWithBadge}" FontSize="13.5" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding Detail}" Classes="caption" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Expander.Header>
+                    <StackPanel Spacing="6">
+                      <TextBlock Text="{Binding DeviceId, StringFormat='DeviceID  {0}'}"
+                                 FontSize="10.5" Foreground="#5B6A62" TextWrapping="Wrap" />
+                      <ItemsControl ItemsSource="{Binding Endpoints}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="svc:DeviceEndpointRow">
+                            <Border Background="#F3EEE2" CornerRadius="7" Padding="9,6" Margin="0,3,0,0">
+                              <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Text="{Binding Label}" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="#276B53" MinWidth="52" />
+                                <TextBlock Grid.Column="1" Text="{Binding Address}" FontSize="11.5"
+                                           FontFamily="Consolas,monospace" TextWrapping="Wrap" />
+                              </Grid>
+                            </Border>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                      <TextBlock Text="未上报任何候选地址" Classes="caption"
+                                 IsVisible="{Binding !HasEndpoints}" />
+                    </StackPanel>
+                  </Expander>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock x:Name="EmptyText" Text="当前没有其他设备在线。"
+                   Classes="caption" IsVisible="False" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</Window>

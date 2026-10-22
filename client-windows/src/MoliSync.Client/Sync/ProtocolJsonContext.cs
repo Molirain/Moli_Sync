@@ -10,6 +10,7 @@ namespace MoliSync.Client.Sync;
 [JsonSerializable(typeof(HelloMessage))]
 [JsonSerializable(typeof(HeartbeatMessage))]
 [JsonSerializable(typeof(PingMessage))]
+[JsonSerializable(typeof(OpenSessionMessage))]
 internal sealed partial class ProtocolJsonContext : JsonSerializerContext
 {
 }

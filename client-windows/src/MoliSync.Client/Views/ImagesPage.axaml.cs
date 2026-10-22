@@ -66,9 +66,40 @@ public partial class ImagesPage : UserControl
             return;
         }
 
+        var owner = TopLevel.GetTopLevel(this) as Window;
         if (mode == UploadMode.PeerToPeer)
         {
-            shell.Notify("P2P 信令尚未在服务端实现，暂时无法直连");
+            if (owner is null)
+            {
+                return;
+            }
+            var peer = await new PeerPickerWindow(shell).ShowDialog<MoliSync.Client.Sync.DeviceView?>(owner);
+            if (peer is null)
+            {
+                return;
+            }
+
+            var p2pTotal = paths.Sum(path => new FileInfo(path).Length);
+            try
+            {
+                await UploadDialog.RunAsync(owner, "P2P 发送图片", async (progress, cancellationToken) =>
+                {
+                    await shell.SendP2pAsync(
+                        paths,
+                        peer,
+                        new Progress<long>(sent => progress.Report(new UploadProgress(
+                            0,
+                            paths.Length,
+                            sent,
+                            p2pTotal))),
+                        cancellationToken);
+                });
+                shell.Notify($"已通过 P2P 发送到 {peer.Name}");
+            }
+            catch (Exception exception)
+            {
+                shell.Notify($"P2P 发送失败：{exception.Message}");
+            }
             return;
         }
 
@@ -96,6 +127,42 @@ public partial class ImagesPage : UserControl
         {
             shell.Notify($"上传失败：{exception.Message}");
         }
+    }
+
+    private async void Preview_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (Shell is not { } shell || sender is not Control { DataContext: RecordItem item })
+        {
+            return;
+        }
+
+        if (item.ThumbnailPath is { } cached && File.Exists(cached))
+        {
+            ShowViewer(item, cached);
+            return;
+        }
+
+        try
+        {
+            var session = shell.Session ?? throw new InvalidOperationException("尚未连接服务器");
+            var path = await session.Cloud.EnsureCachedAsync(item.Record, CancellationToken.None);
+            item.SetThumbnail(path);
+            item.MarkDownloadedIfEmpty(path);
+            ShowViewer(item, path);
+        }
+        catch (Exception exception)
+        {
+            shell.Notify($"预览失败：{exception.Message}");
+        }
+    }
+
+    private void ShowViewer(RecordItem item, string path)
+    {
+        if (TopLevel.GetTopLevel(this) is not Window owner)
+        {
+            return;
+        }
+        new ImageViewerWindow(item.FileName, path).Show(owner);
     }
 
     private async void Download_OnClick(object? sender, RoutedEventArgs e)

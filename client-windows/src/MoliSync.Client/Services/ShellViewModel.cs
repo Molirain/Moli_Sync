@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using MoliSync.Client.Logging;
 using MoliSync.Client.Sync;
@@ -24,6 +25,9 @@ public sealed class RecordItem : INotifyPropertyChanged
     private bool _isDownloading;
     private string? _localPath;
     private string? _error;
+    private Bitmap? _thumbnail;
+    private bool _thumbnailLoading;
+    private string? _thumbnailPath;
 
     public RecordItem(CloudRecord record, string senderName, bool isMine)
     {
@@ -113,6 +117,50 @@ public sealed class RecordItem : INotifyPropertyChanged
         set => Set(ref _error, value);
     }
 
+    /// <summary>Decoded preview image, loaded lazily from the on-disk cache.</summary>
+    public Bitmap? Thumbnail
+    {
+        get => _thumbnail;
+        private set
+        {
+            _thumbnail = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasThumbnail));
+        }
+    }
+
+    public bool HasThumbnail => _thumbnail is not null;
+
+    public bool ThumbnailLoading
+    {
+        get => _thumbnailLoading;
+        private set => Set(ref _thumbnailLoading, value);
+    }
+
+    public string? ThumbnailPath => _thumbnailPath;
+
+    public void MarkThumbnailLoading()
+    {
+        ThumbnailLoading = true;
+    }
+
+    public void SetThumbnail(string path)
+    {
+        _thumbnailPath = path;
+        ThumbnailLoading = false;
+        try
+        {
+            Thumbnail = new Bitmap(path);
+        }
+        catch (Exception)
+        {
+            Thumbnail = null;
+        }
+        OnPropertyChanged(nameof(ThumbnailPath));
+    }
+
+    public void ClearThumbnailLoading() => ThumbnailLoading = false;
+
     public bool IsDownloaded => !string.IsNullOrWhiteSpace(LocalPath) && File.Exists(LocalPath);
 
     public string DownloadLabel => IsDownloaded ? "打开" : "下载";
@@ -122,6 +170,17 @@ public sealed class RecordItem : INotifyPropertyChanged
         LocalPath = path;
         DownloadPercent = 100;
         IsDownloading = false;
+        OnPropertyChanged(nameof(IsDownloaded));
+        OnPropertyChanged(nameof(DownloadLabel));
+    }
+
+    public void MarkDownloadedIfEmpty(string path)
+    {
+        if (IsDownloaded)
+        {
+            return;
+        }
+        LocalPath = path;
         OnPropertyChanged(nameof(IsDownloaded));
         OnPropertyChanged(nameof(DownloadLabel));
     }
@@ -184,6 +243,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 {
     private readonly IClientLog _log;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private bool _thumbnailsRunning;
+    private Action<string>? _p2pReceivedHandler;
     private AppSession? _session;
     private string _statusText = "未连接";
     private bool _isRefreshing;
@@ -256,6 +317,10 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         ? $"{session.Identity.CommonName}（{session.Identity.Issuer}）"
         : "连接后自动读取 Windows 证书库";
 
+    public ReadOnlyObservableCollection<DeviceView> Peers => Devices.Peers;
+
+    public DeviceView? SelfDevice => Devices.Self;
+
     public string Version => typeof(ShellViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.4.0";
 
     public string DeviceName
@@ -278,6 +343,9 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         Detach();
         _session = session;
         UpdateSettings(session.Settings);
+        _p2pReceivedHandler = path => Dispatcher.UIThread.Post(
+            () => Notification?.Invoke($"收到 P2P 文件：{Path.GetFileName(path)}"));
+        _session.P2p.FileReceived += _p2pReceivedHandler;
         _session.Dispatcher.WelcomeReceived += OnWelcome;
         _session.Dispatcher.PresenceChanged += OnPresence;
         _session.Dispatcher.RecordReceived += OnRecordReceived;
@@ -309,6 +377,11 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         _session.Dispatcher.WelcomeReceived -= OnWelcome;
         _session.Dispatcher.PresenceChanged -= OnPresence;
         _session.Dispatcher.RecordReceived -= OnRecordReceived;
+        if (_p2pReceivedHandler is not null)
+        {
+            _session.P2p.FileReceived -= _p2pReceivedHandler;
+            _p2pReceivedHandler = null;
+        }
         _session = null;
         TextRecords.Clear();
         ImageRecords.Clear();
@@ -350,6 +423,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             var records = await session.Cloud.ListAsync(null, 100, cancellationToken).ConfigureAwait(true);
             ApplyRecords(records, session.DeviceId);
             StatusText = $"已同步 · {DateTime.Now:HH:mm}";
+            QueueThumbnailLoad();
         }
         catch (OperationCanceledException)
         {
@@ -366,6 +440,69 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             IsRefreshing = false;
             _refreshGate.Release();
         }
+    }
+
+    /// <summary>
+    /// Loads preview images for every image record that has no decoded
+    /// thumbnail yet. Downloads go to a per-record cache directory, so this is
+    /// cheap on subsequent refreshes.
+    /// </summary>
+    public void QueueThumbnailLoad()
+    {
+        var session = _session;
+        if (session is null || _thumbnailsRunning)
+        {
+            return;
+        }
+
+        _thumbnailsRunning = true;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var gate = new SemaphoreSlim(3);
+                var pending = ImageRecords.ToArray();
+                var tasks = pending.Select(async item =>
+                {
+                    if (item.HasThumbnail)
+                    {
+                        return;
+                    }
+                    await gate.WaitAsync().ConfigureAwait(false);
+                    try
+                    {
+                        if (item.ThumbnailPath is { } cached && File.Exists(cached))
+                        {
+                            await Dispatcher.UIThread.InvokeAsync(() => item.SetThumbnail(cached));
+                            return;
+                        }
+                        await Dispatcher.UIThread.InvokeAsync(item.MarkThumbnailLoading);
+                        var path = await session.Cloud
+                            .EnsureCachedAsync(item.Record, CancellationToken.None)
+                            .ConfigureAwait(false);
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            item.SetThumbnail(path);
+                            item.MarkDownloadedIfEmpty(path);
+                        });
+                    }
+                    catch (Exception exception)
+                    {
+                        _log.Debug($"thumbnail for {item.RecordId} failed: {exception.Message}");
+                        await Dispatcher.UIThread.InvokeAsync(item.ClearThumbnailLoading);
+                    }
+                    finally
+                    {
+                        gate.Release();
+                    }
+                });
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+            finally
+            {
+                _thumbnailsRunning = false;
+            }
+        });
     }
 
     public async Task PostTextAsync(string text, CancellationToken cancellationToken)
@@ -420,6 +557,68 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             completedBytes += length;
         }
         await RefreshAsync(cancellationToken).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Sends files directly to another device. The server issues a 32-byte
+    /// session ticket; the same ticket is also pushed to the receiver, which
+    /// validates it before accepting a single byte.
+    /// </summary>
+    public async Task<string> SendP2pAsync(
+        IReadOnlyList<string> paths,
+        DeviceView target,
+        IProgress<long>? progress,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        ArgumentNullException.ThrowIfNull(target);
+        if (paths.Count == 0)
+        {
+            throw new ArgumentException("no files selected", nameof(paths));
+        }
+
+        var session = _session ?? throw new InvalidOperationException("尚未连接服务器");
+        var completion = new TaskCompletionSource<P2pSession>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void OnTicket(P2pSession ticket)
+        {
+            if (string.Equals(ticket.FromDeviceId, session.DeviceId, StringComparison.Ordinal) &&
+                string.Equals(ticket.ToDeviceId, target.DeviceId, StringComparison.Ordinal))
+            {
+                completion.TrySetResult(ticket);
+            }
+        }
+
+        session.Control.SessionTicketReceived += OnTicket;
+        try
+        {
+            if (!await session.Control
+                    .RequestSessionAsync(target.DeviceId, Path.GetFileName(paths[0]), cancellationToken)
+                    .ConfigureAwait(true))
+            {
+                throw new InvalidOperationException("控制面未连接，无法协商 P2P 会话");
+            }
+
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(8));
+            await using var registration = timeout.Token
+                .Register(static state => ((TaskCompletionSource<P2pSession>)state!).TrySetCanceled(), completion);
+
+            var ticket = await completion.Task.ConfigureAwait(true);
+            var endpoints = ticket.Devices
+                .FirstOrDefault(device => string.Equals(device.DeviceId, target.DeviceId, StringComparison.Ordinal))
+                ?.Endpoints ?? target.Endpoints;
+
+            await session.CreateP2pSender()
+                .SendAsync(ticket, endpoints, paths, Settings.DeviceName, progress, cancellationToken)
+                .ConfigureAwait(true);
+
+            return $"已通过 P2P 发送到 {target.Name}";
+        }
+        finally
+        {
+            session.Control.SessionTicketReceived -= OnTicket;
+        }
     }
 
     public async Task<string> DownloadAsync(
@@ -505,6 +704,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             Devices.Reset(self, welcome.Devices);
             StatusText = "已连接";
             OnPropertyChanged(nameof(OnlineText));
+            OnPropertyChanged(nameof(Peers));
+            OnPropertyChanged(nameof(SelfDevice));
             _ = RefreshAsync();
         });
     }
@@ -514,6 +715,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         {
             Devices.Apply(update);
             OnPropertyChanged(nameof(OnlineText));
+            OnPropertyChanged(nameof(Peers));
+            OnPropertyChanged(nameof(SelfDevice));
         });
 
     private void OnRecordReceived() =>

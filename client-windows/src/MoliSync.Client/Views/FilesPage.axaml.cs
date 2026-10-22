@@ -58,9 +58,40 @@ public partial class FilesPage : UserControl
         {
             return;
         }
+        var owner = TopLevel.GetTopLevel(this) as Window;
         if (mode == UploadMode.PeerToPeer)
         {
-            shell.Notify("P2P 信令尚未在服务端实现，暂时无法直连");
+            if (owner is null)
+            {
+                return;
+            }
+            var peer = await new PeerPickerWindow(shell).ShowDialog<MoliSync.Client.Sync.DeviceView?>(owner);
+            if (peer is null)
+            {
+                return;
+            }
+
+            var p2pTotal = paths.Sum(path => new FileInfo(path).Length);
+            try
+            {
+                await UploadDialog.RunAsync(owner, "P2P 发送文件", async (progress, cancellationToken) =>
+                {
+                    await shell.SendP2pAsync(
+                        paths,
+                        peer,
+                        new Progress<long>(sent => progress.Report(new UploadProgress(
+                            0,
+                            paths.Length,
+                            sent,
+                            p2pTotal))),
+                        cancellationToken);
+                });
+                shell.Notify($"已通过 P2P 发送到 {peer.Name}");
+            }
+            catch (Exception exception)
+            {
+                shell.Notify($"P2P 发送失败：{exception.Message}");
+            }
             return;
         }
 

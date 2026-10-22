@@ -1,0 +1,44 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:svc="using:MoliSync.Client.Services"
+        x:Class="MoliSync.Client.Views.PeerPickerWindow"
+        Width="520" Height="520" MinWidth="420" MinHeight="360"
+        Title="选择接收设备"
+        Background="{StaticResource PaperBrush}">
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Border Background="{StaticResource PineBrush}" Padding="22,18">
+      <StackPanel Spacing="4">
+        <TextBlock Text="P2P 直连" Foreground="#F7F3E8" FontSize="19" FontWeight="Bold" />
+        <TextBlock x:Name="SummaryText" Foreground="#BFD6CB" FontSize="12" />
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer Grid.Row="1">
+      <StackPanel Margin="20,14,20,10" Spacing="8">
+        <ListBox x:Name="PeerList" Background="Transparent" SelectionMode="Single" MaxHeight="330">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="svc:DeviceCard">
+              <Border Classes="panel" Margin="0,0,0,8">
+                <StackPanel Spacing="3">
+                  <TextBlock Text="{Binding NameWithBadge}" FontSize="13" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Detail}" Classes="caption" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBlock x:Name="EmptyText" Classes="caption" IsVisible="False"
+                   Text="当前没有其他设备在线。请确认对方已登录 MoliSync 且网络可达。" />
+        <TextBlock Classes="caption" TextWrapping="Wrap"
+                   Text="传输优先走局域网/VPN 直连；1.2 秒内连不上会自动回退到服务端中继。会话票据由服务器签发，对端证书指纹必须匹配。" />
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.Row="2" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,1,0,0" Padding="20,12">
+      <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+        <Button Click="Cancel_OnClick">取消</Button>
+        <Button Classes="primary" Click="Send_OnClick" MinWidth="120">开始发送</Button>
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

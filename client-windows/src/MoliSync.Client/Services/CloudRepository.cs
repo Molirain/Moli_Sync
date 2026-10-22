@@ -119,9 +119,31 @@ public sealed class CloudRepository
 
         var descriptor = new BlobDescriptor(record.BlobId!, record.FileName ?? record.BlobId!, record.FileSize);
         return _dataDirectory.WithDownloadGateAsync(
-            directory => new BlobDownloader(_http, directory, _log)
+            directory => new BlobDownloader(_http, _baseUri, directory, _log)
                 .DownloadAsync(descriptor, progress, cancellationToken),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Downloads a blob into a per-record cache directory so thumbnails and
+    /// previews are fetched once and reused. Safe to call repeatedly.
+    /// </summary>
+    public async Task<string> EnsureCachedAsync(
+        CloudRecord record,
+        CancellationToken cancellationToken)
+    {
+        if (!record.HasBlob)
+        {
+            throw new InvalidOperationException("record has no blob");
+        }
+
+        var directory = Path.Combine(_dataDirectory.Current, "cache", record.RecordId);
+        var descriptor = new BlobDescriptor(record.BlobId!, record.FileName ?? record.BlobId!, record.FileSize);
+        var downloader = new BlobDownloader(_http, _baseUri, directory, _log);
+        var result = await _dataDirectory.WithDownloadGateAsync(
+            _ => downloader.DownloadAsync(descriptor, null, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
+        return result.FilePath;
     }
 
     public async Task DeleteAsync(string recordId, CancellationToken cancellationToken)

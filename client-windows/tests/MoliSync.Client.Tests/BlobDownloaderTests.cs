@@ -17,7 +17,7 @@ public sealed class BlobDownloaderTests
 
         var handler = new RangeHttpHandler(content);
         using var http = CreateClient(handler);
-        var downloader = new BlobDownloader(http, directory.Path, NullClientLog.Instance);
+        var downloader = new BlobDownloader(http, new Uri("https://sync.example.com/"), directory.Path, NullClientLog.Instance);
 
         var result = await downloader.DownloadAsync(
             new BlobDescriptor("blob1", "report.bin", content.Length),
@@ -39,7 +39,7 @@ public sealed class BlobDownloaderTests
 
         var handler = new RangeHttpHandler(content) { IgnoreRange = true };
         using var http = CreateClient(handler);
-        var downloader = new BlobDownloader(http, directory.Path, NullClientLog.Instance);
+        var downloader = new BlobDownloader(http, new Uri("https://sync.example.com/"), directory.Path, NullClientLog.Instance);
 
         var result = await downloader.DownloadAsync(
             new BlobDescriptor("blob2", "payload.bin", content.Length),
@@ -59,7 +59,7 @@ public sealed class BlobDownloaderTests
 
         var handler = new RangeHttpHandler(content);
         using var http = CreateClient(handler);
-        var downloader = new BlobDownloader(http, directory.Path, NullClientLog.Instance);
+        var downloader = new BlobDownloader(http, new Uri("https://sync.example.com/"), directory.Path, NullClientLog.Instance);
 
         var result = await downloader.DownloadAsync(
             new BlobDescriptor("blob3", "done.bin", content.Length),
@@ -76,7 +76,7 @@ public sealed class BlobDownloaderTests
         using var directory = new TempDirectory();
         var handler = new RangeHttpHandler(Array.Empty<byte>());
         using var http = CreateClient(handler);
-        var downloader = new BlobDownloader(http, directory.Path, NullClientLog.Instance);
+        var downloader = new BlobDownloader(http, new Uri("https://sync.example.com/"), directory.Path, NullClientLog.Instance);
 
         var result = await downloader.DownloadAsync(
             new BlobDescriptor("blob4", "empty.txt", 0),
@@ -94,7 +94,7 @@ public sealed class BlobDownloaderTests
         using var directory = new TempDirectory();
         var handler = new RangeHttpHandler(content);
         using var http = CreateClient(handler);
-        var downloader = new BlobDownloader(http, directory.Path, NullClientLog.Instance);
+        var downloader = new BlobDownloader(http, new Uri("https://sync.example.com/"), directory.Path, NullClientLog.Instance);
 
         var result = await downloader.DownloadAsync(
             new BlobDescriptor("blob5", @"..\..\evil\payload.txt", content.Length),
@@ -114,7 +114,7 @@ public sealed class BlobDownloaderTests
     {
         using var directory = new TempDirectory();
         using var http = CreateClient(new RangeHttpHandler(Array.Empty<byte>()));
-        var downloader = new BlobDownloader(http, directory.Path, NullClientLog.Instance);
+        var downloader = new BlobDownloader(http, new Uri("https://sync.example.com/"), directory.Path, NullClientLog.Instance);
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => downloader.DownloadAsync(
@@ -130,7 +130,7 @@ public sealed class BlobDownloaderTests
         using var directory = new TempDirectory();
         var handler = new RangeHttpHandler(content);
         using var http = CreateClient(handler);
-        var downloader = new BlobDownloader(http, directory.Path, NullClientLog.Instance);
+        var downloader = new BlobDownloader(http, new Uri("https://sync.example.com/"), directory.Path, NullClientLog.Instance);
 
         await Assert.ThrowsAsync<InvalidDataException>(
             () => downloader.DownloadAsync(
@@ -147,7 +147,7 @@ public sealed class BlobDownloaderTests
         var content = CreateContent(100_000);
         using var directory = new TempDirectory();
         using var http = CreateClient(new RangeHttpHandler(content));
-        var downloader = new BlobDownloader(http, directory.Path, NullClientLog.Instance);
+        var downloader = new BlobDownloader(http, new Uri("https://sync.example.com/"), directory.Path, NullClientLog.Instance);
         var reports = new List<long>();
 
         await downloader.DownloadAsync(

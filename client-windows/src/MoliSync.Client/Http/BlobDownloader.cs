@@ -37,15 +37,21 @@ public sealed partial class BlobDownloader
     };
 
     private readonly HttpClient _http;
+    private readonly Uri _baseUri;
     private readonly string _directory;
     private readonly string _directoryPrefix;
     private readonly IClientLog _log;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _blobLocks = new(StringComparer.Ordinal);
 
-    public BlobDownloader(HttpClient httpClient, string downloadDirectory, IClientLog log)
+    public BlobDownloader(HttpClient httpClient, Uri baseUri, string downloadDirectory, IClientLog? log = null)
     {
         _http = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _log = log ?? throw new ArgumentNullException(nameof(log));
+        _baseUri = baseUri ?? throw new ArgumentNullException(nameof(baseUri));
+        if (!_baseUri.IsAbsoluteUri)
+        {
+            throw new ArgumentException("the download base URI must be absolute", nameof(baseUri));
+        }
+        _log = log ?? NullClientLog.Instance;
 
         _directory = Path.GetFullPath(downloadDirectory);
         Directory.CreateDirectory(_directory);
@@ -132,7 +138,7 @@ public sealed partial class BlobDownloader
 
             using var request = new HttpRequestMessage(
                 HttpMethod.Get,
-                $"api/v1/blobs/{Uri.EscapeDataString(blob.BlobId)}");
+                new Uri(_baseUri, $"api/v1/blobs/{Uri.EscapeDataString(blob.BlobId)}"));
             if (existing > 0)
             {
                 request.Headers.Range = new RangeHeaderValue(existing, null);

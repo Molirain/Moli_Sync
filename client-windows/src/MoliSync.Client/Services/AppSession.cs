@@ -6,6 +6,9 @@ using MoliSync.Client.Sync;
 
 namespace MoliSync.Client.Services;
 
+// AppSession owns the full connected identity: HTTP data plane, control plane
+// and the P2P listener bound to the same certificate.
+
 /// <summary>
 /// A complete connected identity: certificate, HTTP data plane, control-plane
 /// socket, clipboard dispatcher and data directory. Replacing connection
@@ -16,6 +19,8 @@ public sealed class AppSession : IAsyncDisposable
     private readonly PinnedCertificateAuthority? _authority;
     private readonly HttpClient _http;
     private readonly WindowsClipboardSink _clipboard;
+    private readonly PinnedServerCertificateValidator _serverValidator;
+    private readonly IClientLog _log;
     private readonly CancellationTokenSource _cancellation = new();
     private Task? _controlTask;
     private bool _disposed;
@@ -29,7 +34,10 @@ public sealed class AppSession : IAsyncDisposable
         SyncDispatcher dispatcher,
         CloudRepository cloud,
         DataDirectoryManager dataDirectory,
-        ControlPlaneClient control)
+        ControlPlaneClient control,
+        P2pListener p2p,
+        PinnedServerCertificateValidator serverValidator,
+        IClientLog log)
     {
         Settings = settings;
         _authority = authority;
@@ -40,6 +48,9 @@ public sealed class AppSession : IAsyncDisposable
         Cloud = cloud;
         DataDirectory = dataDirectory;
         Control = control;
+        P2p = p2p;
+        _serverValidator = serverValidator;
+        _log = log;
     }
 
     public AppSettings Settings { get; }
@@ -54,7 +65,13 @@ public sealed class AppSession : IAsyncDisposable
 
     public ControlPlaneClient Control { get; }
 
+    public P2pListener P2p { get; }
+
     public string DeviceId => Identity.DeviceId;
+
+    /// <summary>Sender bound to this session's certificate and trust policy.</summary>
+    public P2pSender CreateP2pSender() =>
+        new(Identity, _serverValidator, new Uri(Settings.ServerUrl.TrimEnd('/') + "/", UriKind.Absolute), _log);
 
     public static AppSession Create(AppSettings settings, IClientLog log)
     {
@@ -93,6 +110,26 @@ public sealed class AppSession : IAsyncDisposable
             var control = new ControlPlaneClient(options, identity, validator, dispatcher, log);
             var dataDirectory = new DataDirectoryManager(settings.DataDirectory);
             var cloud = new CloudRepository(http, settings.ServerUrl, dataDirectory, log);
+
+            // The listener is created before the control plane starts so the
+            // first hello already advertises a real port.
+            var p2p = new P2pListener(identity, settings.DataDirectory, log);
+            p2p.Start();
+            var p2pSender = new P2pSender(
+                identity,
+                validator,
+                new Uri(settings.ServerUrl.TrimEnd('/') + "/", UriKind.Absolute),
+                log);
+            p2p.UseRelay(p2pSender.OpenRelayStreamAsync);
+            control.EndpointProvider = () => p2p.Endpoints();
+            control.SessionTicketReceived += session =>
+            {
+                if (string.Equals(session.ToDeviceId, identity.DeviceId, StringComparison.Ordinal))
+                {
+                    p2p.Register(session);
+                }
+            };
+
             return new AppSession(
                 settings,
                 authority,
@@ -102,7 +139,10 @@ public sealed class AppSession : IAsyncDisposable
                 dispatcher,
                 cloud,
                 dataDirectory,
-                control);
+                control,
+                p2p,
+                validator,
+                log);
         }
         catch
         {
@@ -167,6 +207,7 @@ public sealed class AppSession : IAsyncDisposable
         }
 
         await _clipboard.DisposeAsync().ConfigureAwait(false);
+        await P2p.DisposeAsync().ConfigureAwait(false);
         _http.Dispose();
         Identity.Dispose();
         _authority?.Dispose();

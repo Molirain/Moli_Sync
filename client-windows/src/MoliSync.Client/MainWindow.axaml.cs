@@ -254,6 +254,22 @@ public partial class MainWindow : Window
         }
     }
 
+    private DevicesWindow? _devicesWindow;
+
+    private void Devices_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_devicesWindow is { } existing)
+        {
+            existing.Show();
+            existing.Activate();
+            return;
+        }
+
+        _devicesWindow = new DevicesWindow(_shell);
+        _devicesWindow.Closed += (_, _) => _devicesWindow = null;
+        _devicesWindow.Show(this);
+    }
+
     private void Nav_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (sender is Button { Tag: string tag })

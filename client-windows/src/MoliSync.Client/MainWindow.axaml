@@ -62,15 +62,19 @@
           </StackPanel>
 
           <StackPanel Grid.Row="2" Spacing="10">
-            <Border Background="#14CFE9DC" BorderBrush="#22CFE9DC" BorderThickness="1" CornerRadius="13" Padding="12,10">
-              <StackPanel Spacing="4">
-                <StackPanel Orientation="Horizontal" Spacing="7">
-                  <Ellipse Width="7" Height="7" Fill="{StaticResource MintStrongBrush}" VerticalAlignment="Center" />
-                  <TextBlock Text="{Binding OnlineText}" Foreground="#E7F2EC" FontSize="12" FontWeight="SemiBold" />
+            <Button x:Name="DevicesButton" Background="Transparent" BorderThickness="0" Padding="0"
+                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                    Click="Devices_OnClick" ToolTip.Tip="查看在线设备与候选 IP">
+              <Border Background="#14CFE9DC" BorderBrush="#22CFE9DC" BorderThickness="1" CornerRadius="13" Padding="12,10">
+                <StackPanel Spacing="4">
+                  <StackPanel Orientation="Horizontal" Spacing="7">
+                    <Ellipse Width="7" Height="7" Fill="{StaticResource MintStrongBrush}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding OnlineText}" Foreground="#E7F2EC" FontSize="12" FontWeight="SemiBold" />
+                  </StackPanel>
+                  <TextBlock Text="点击查看设备与候选 IP" Foreground="#9FC1B2" FontSize="10" TextWrapping="Wrap" />
                 </StackPanel>
-                <TextBlock Text="本机与已连接设备实时同步" Foreground="#9FC1B2" FontSize="10" TextWrapping="Wrap" />
-              </StackPanel>
-            </Border>
+              </Border>
+            </Button>
             <Button x:Name="NavSettings" Classes="nav" Tag="settings" Click="Nav_OnClick">
               <Grid ColumnDefinitions="Auto,*">
                 <PathIcon Data="M3,5 H21 V7 H3 Z M15,3 H17 V9 H15 Z M3,11 H21 V13 H3 Z M7,9 H9 V15 H7 Z M3,17 H21 V19 H3 Z M13,15 H15 V21 H13 Z" Width="17" Height="17" Foreground="#CBE0D6" />

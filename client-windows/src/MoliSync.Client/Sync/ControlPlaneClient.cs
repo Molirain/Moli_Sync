@@ -30,6 +30,14 @@ public sealed class ControlPlaneClient
     private readonly IClientLog _log;
     private readonly TimeSpan _connectTimeout;
     private long _heartbeatIntervalTicks = DefaultHeartbeat.Ticks;
+    private readonly object _socketGate = new();
+    private ClientWebSocket? _activeSocket;
+
+    /// <summary>Supplies the local P2P candidate addresses advertised in hello.</summary>
+    public Func<IReadOnlyList<EndpointModel>>? EndpointProvider { get; set; }
+
+    /// <summary>Raised for every server-issued transfer ticket.</summary>
+    public event Action<P2pSession>? SessionTicketReceived;
 
     public ControlPlaneClient(
         ClientOptions options,
@@ -126,8 +134,12 @@ public sealed class ControlPlaneClient
                 Name = _options.DeviceName,
                 Platform = _options.Platform,
             },
-            Endpoints = new List<EndpointModel>(),
+            Endpoints = EndpointProvider?.Invoke()?.ToList() ?? new List<EndpointModel>(),
         };
+        lock (_socketGate)
+        {
+            _activeSocket = socket;
+        }
         await SendAsync(socket, sendGate, hello, ProtocolJsonContext.Default.HelloMessage, cancellationToken)
             .ConfigureAwait(false);
 
@@ -139,6 +151,13 @@ public sealed class ControlPlaneClient
         }
         finally
         {
+            lock (_socketGate)
+            {
+                if (ReferenceEquals(_activeSocket, socket))
+                {
+                    _activeSocket = null;
+                }
+            }
             sessionCancellation.Cancel();
             try
             {
@@ -234,6 +253,30 @@ public sealed class ControlPlaneClient
             return;
         }
 
+        if (string.Equals(envelope.Type, ProtocolTypes.SessionTicket, StringComparison.Ordinal) &&
+            !string.IsNullOrWhiteSpace(envelope.SessionId) &&
+            !string.IsNullOrWhiteSpace(envelope.Ticket) &&
+            !string.IsNullOrWhiteSpace(envelope.FromDeviceId) &&
+            !string.IsNullOrWhiteSpace(envelope.ToDeviceId))
+        {
+            var session = new P2pSession(
+                envelope.SessionId,
+                envelope.Ticket,
+                envelope.FromDeviceId,
+                envelope.ToDeviceId,
+                envelope.Devices ?? new List<DeviceView>(),
+                envelope.RelayUrl,
+                envelope.ExpiresAt ?? 0);
+            try
+            {
+                SessionTicketReceived?.Invoke(session);
+            }
+            catch (Exception exception)
+            {
+                _log.Error("session ticket subscriber failed", exception);
+            }
+        }
+
         if (string.Equals(envelope.Type, ProtocolTypes.Welcome, StringComparison.Ordinal))
         {
             welcomed = true;
@@ -253,6 +296,35 @@ public sealed class ControlPlaneClient
         {
             _log.Error("failed to dispatch a control frame", exception);
         }
+    }
+
+    /// <summary>
+    /// Asks the server for a transfer grant to another online device. The
+    /// resulting ticket arrives asynchronously through
+    /// <see cref="SessionTicketReceived"/> on both participants.
+    /// </summary>
+    public async Task<bool> RequestSessionAsync(
+        string toDeviceId,
+        string? transferName,
+        CancellationToken cancellationToken)
+    {
+        ClientWebSocket? socket;
+        lock (_socketGate)
+        {
+            socket = _activeSocket;
+        }
+        if (socket is null || socket.State != WebSocketState.Open)
+        {
+            return false;
+        }
+
+        var payload = JsonSerializer.SerializeToUtf8Bytes(
+            new OpenSessionMessage { ToDeviceId = toDeviceId, TransferName = transferName },
+            ProtocolJsonContext.Default.OpenSessionMessage);
+        await socket
+            .SendAsync(payload.AsMemory(), WebSocketMessageType.Text, endOfMessage: true, cancellationToken)
+            .ConfigureAwait(false);
+        return true;
     }
 
     private async Task HeartbeatLoopAsync(

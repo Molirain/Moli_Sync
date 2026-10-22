@@ -11,6 +11,8 @@ public static class ProtocolTypes
     public const string Presence = "presence";
     public const string Error = "error";
     public const string SyncRecord = "sync_record";
+    public const string OpenSession = "open_session";
+    public const string SessionTicket = "session_ticket";
 }
 
 public static class PayloadTypes
@@ -151,4 +153,25 @@ public sealed class ServerEnvelope
     public bool? Fatal { get; set; }
 
     public SyncRecord? Record { get; set; }
+
+    public string? SessionId { get; set; }
+
+    public string? Ticket { get; set; }
+
+    public string? FromDeviceId { get; set; }
+
+    public string? ToDeviceId { get; set; }
+
+    public string? RelayUrl { get; set; }
+
+    public long? ExpiresAt { get; set; }
+}
+
+public sealed class OpenSessionMessage
+{
+    public string Type { get; set; } = ProtocolTypes.OpenSession;
+
+    public string ToDeviceId { get; set; } = string.Empty;
+
+    public string? TransferName { get; set; }
 }
