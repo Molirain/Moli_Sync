@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MoliSync · UI 审阅稿</title>
+<style>
+  :root {
+    --pine: #173D36;
+    --pine-soft: #1F5049;
+    --mint: #CFE9DC;
+    --mint-strong: #8FD3B6;
+    --paper: #F2EDE2;
+    --card: #FFFCF6;
+    --ink: #18211D;
+    --muted: #6C7A72;
+    --line: #E6DFD1;
+    --amber: #D99A3E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 56px 40px 80px;
+    color: var(--ink);
+    font: 15px/1.55 "Segoe UI", "Noto Sans SC", system-ui, sans-serif;
+    background:
+      radial-gradient(1100px 520px at 12% -8%, #E3F1E9 0%, transparent 62%),
+      radial-gradient(900px 500px at 100% 0%, #F6E9D6 0%, transparent 55%),
+      var(--paper);
+  }
+  header.review { max-width: 1540px; margin: 0 auto 42px; }
+  .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--pine); font-weight: 700;
+  }
+  .kicker::before {
+    content: ""; width: 26px; height: 2px; background: var(--pine); border-radius: 2px;
+  }
+  h1 { margin: 10px 0 6px; font-size: 34px; line-height: 1.15; letter-spacing: -.02em; }
+  .lede { margin: 0; max-width: 720px; color: #4E5D55; font-size: 16px; }
+  .notes { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+  .note {
+    background: rgba(255,252,246,.75); border: 1px solid var(--line);
+    border-radius: 999px; padding: 7px 14px; font-size: 13px; color: #3E4C45;
+  }
+  .note b { color: var(--pine); }
+  .swatches { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .swatch { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .swatch i { width: 22px; height: 22px; border-radius: 8px; border: 1px solid rgba(0,0,0,.06); }
+
+  .stage {
+    display: flex; gap: 34px; justify-content: center; align-items: flex-start;
+    flex-wrap: wrap; max-width: 1540px; margin: 0 auto;
+  }
+  figure.phone-wrap { margin: 0; width: 330px; }
+  .phone {
+    width: 330px; height: 700px; border-radius: 42px; overflow: hidden;
+    background: #0E1614; padding: 9px;
+    box-shadow: 0 28px 60px -18px rgba(23,61,54,.45), 0 2px 0 #ffffff33 inset;
+    position: relative;
+  }
+  .screen {
+    width: 100%; height: 100%; border-radius: 34px; overflow: hidden;
+    background: var(--paper); display: flex; flex-direction: column; position: relative;
+  }
+  figcaption {
+    margin-top: 16px; text-align: center; font-size: 13px; color: #5A6960;
+  }
+  figcaption b { display: block; color: var(--pine); font-size: 14px; margin-bottom: 2px; }
+
+  /* status bar + header */
+  .hero {
+    background: linear-gradient(160deg, var(--pine) 0%, #1E5146 120%);
+    color: #F7F3E8; padding: 10px 18px 22px; border-radius: 0 0 26px 26px;
+    position: relative; z-index: 2;
+  }
+  .statusbar {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; letter-spacing: .02em; opacity: .85; height: 18px;
+  }
+  .statusbar .right { display: flex; gap: 5px; align-items: center; }
+  .statusbar svg { width: 13px; height: 13px; fill: currentColor; opacity: .9; }
+  .brandrow { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+  .mark { width: 34px; height: 34px; border-radius: 11px; flex: 0 0 auto; }
+  .brand { font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+  .spacer { flex: 1; }
+  .online {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(207,233,220,.14); border: 1px solid rgba(207,233,220,.28);
+    color: #DDF3E7; border-radius: 999px; padding: 5px 10px; font-size: 11px; font-weight: 600;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--mint-strong); box-shadow: 0 0 0 3px rgba(143,211,182,.18); }
+  .gear {
+    width: 32px; height: 32px; border-radius: 11px; display: grid; place-items: center;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+  }
+  .gear svg { width: 16px; height: 16px; fill: #F2F7F3; opacity: .9; }
+  .hero h2 { margin: 18px 0 3px; font-size: 25px; letter-spacing: -.03em; font-weight: 700; }
+  .hero p { margin: 0; font-size: 12.5px; color: #BFD6CB; }
+  .hero .rule { margin-top: 14px; display: flex; gap: 7px; }
+  .rule span {
+    font-size: 11px; color: #D6E9DF; background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.1); border-radius: 999px; padding: 4px 9px;
+  }
+
+  /* content */
+  .body {
+    flex: 1; overflow: hidden; padding: 16px 16px 8px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .day { font-size: 11px; font-weight: 700; letter-spacing: .08em; color: #88958D; margin: 0 2px 2px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    padding: 13px 14px; box-shadow: 0 1px 0 #fff inset;
+  }
+  .textcard p { margin: 0 0 9px; font-size: 14px; line-height: 1.5; color: #23302A; }
+  .meta { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--muted); }
+  .meta .sep { opacity: .5; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 650;
+    border-radius: 999px; padding: 3px 7px; background: #E6F2EB; color: #276B53;
+  }
+  .badge.p2p { background: #F8EDD9; color: #8A5C16; }
+  .badge svg { width: 10px; height: 10px; fill: currentColor; }
+  .copypill {
+    margin-left: auto; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center;
+    background: #F1EEE5; border: 1px solid #E8E2D4;
+  }
+  .copypill svg { width: 13px; height: 13px; fill: #5F6F67; }
+
+  /* images */
+  .chips { display: flex; gap: 7px; padding: 1px 2px 3px; }
+  .chip {
+    font-size: 11px; font-weight: 600; color: #5E6D65; background: #EAE5D9;
+    border-radius: 999px; padding: 5px 11px;
+  }
+  .chip.on { background: var(--pine); color: #F4F0E5; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .thumb {
+    position: relative; border-radius: 16px; overflow: hidden; height: 118px;
+    border: 1px solid rgba(23,61,54,.08);
+  }
+  .thumb .cap {
+    position: absolute; left: 8px; bottom: 8px; right: 8px;
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 4px;
+  }
+  .thumb .cap span {
+    font-size: 9.5px; color: #fff; text-shadow: 0 1px 6px #0009;
+  }
+  .thumb .cloud {
+    width: 20px; height: 20px; border-radius: 7px; background: #ffffffe0; display: grid; place-items: center;
+  }
+  .thumb .cloud svg { width: 11px; height: 11px; fill: #276B53; }
+  .t1 { background: radial-gradient(120% 90% at 20% 10%, #F7C98A 0%, #E8836A 52%, #8E4B5C 100%); }
+  .t2 { background: radial-gradient(120% 100% at 80% 0%, #BFE3D2 0%, #5FA58C 55%, #245E51 100%); }
+  .t3 { background: radial-gradient(130% 100% at 30% 90%, #F6E7B4 0%, #D2B05D 48%, #7A6224 100%); }
+  .t4 { background: radial-gradient(120% 100% at 70% 20%, #CBD8F4 0%, #7089C6 55%, #35406B 100%); }
+  .t5 { background: radial-gradient(120% 100% at 20% 80%, #F1C7D6 0%, #C0708C 55%, #6B3348 100%); }
+  .t6 { background: radial-gradient(130% 100% at 60% 30%, #D6E6C4 0%, #8DAE74 55%, #3E5A33 100%); }
+
+  /* files */
+  .search {
+    display: flex; align-items: center; gap: 9px; background: #E9E4D8;
+    border-radius: 14px; padding: 9px 12px; color: #8B968F; font-size: 12.5px;
+  }
+  .search svg { width: 14px; height: 14px; fill: #8B968F; }
+  .filerow { display: flex; align-items: center; gap: 11px; }
+  .ftype {
+    width: 40px; height: 40px; border-radius: 12px; flex: 0 0 auto;
+    display: grid; place-items: center; font-size: 9px; font-weight: 800; letter-spacing: .04em;
+  }
+  .ftype.pdf { background: #F8E2E0; color: #A6403B; }
+  .ftype.zip { background: #F6ECD6; color: #8A6420; }
+  .ftype.mp4 { background: #E1E9F7; color: #3C5B93; }
+  .ftype.doc { background: #E3F0E8; color: #2E6B53; }
+  .fname { font-size: 13px; font-weight: 600; color: #23302A; }
+  .fmeta { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+  .dl {
+    margin-left: auto; width: 32px; height: 32px; border-radius: 10px;
+    background: #EDF4EF; display: grid; place-items: center;
+  }
+  .dl svg { width: 15px; height: 15px; fill: #2E6B53; }
+  .progress { height: 4px; border-radius: 999px; background: #ECE7DA; margin-top: 9px; overflow: hidden; }
+  .progress i { display: block; height: 100%; width: 68%; border-radius: 999px; background: var(--pine-soft); }
+
+  /* settings */
+  .backrow { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .back { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: rgba(255,255,255,.08); }
+  .back svg { width: 16px; height: 16px; fill: #F2F7F3; }
+  .backrow h2 { margin: 0; font-size: 19px; }
+  .settingcard { display: flex; flex-direction: column; gap: 11px; }
+  .srow { display: flex; align-items: center; gap: 10px; }
+  .srow .label { font-size: 13px; font-weight: 600; }
+  .srow .value { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .fingerprint { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 10px; color: #7B877F; word-break: break-all; }
+  .slider { position: relative; height: 6px; border-radius: 999px; background: #E7E1D3; margin: 6px 2px 2px; }
+  .slider .fill { position: absolute; inset: 0 45% 0 0; background: var(--pine-soft); border-radius: 999px; }
+  .slider .knob {
+    position: absolute; left: 55%; top: 50%; width: 20px; height: 20px; margin: -10px 0 0 -10px;
+    border-radius: 50%; background: #FFFCF6; border: 2px solid var(--pine-soft); box-shadow: 0 2px 6px #173d3633;
+  }
+  .scale { display: flex; justify-content: space-between; font-size: 10px; color: #93A096; }
+  .hint { font-size: 11px; color: #6C7A72; line-height: 1.5; }
+  .usagebar { height: 7px; border-radius: 999px; background: #E7E1D3; overflow: hidden; margin: 4px 0 2px; }
+  .usagebar i { display: block; height: 100%; width: 34%; border-radius: 999px; background: linear-gradient(90deg, var(--pine-soft), var(--mint-strong)); }
+  .divider { height: 1px; background: #EEE8DA; }
+
+  /* bottom nav + fab */
+  .fab {
+    position: absolute; right: 18px; bottom: 84px; width: 54px; height: 54px; border-radius: 18px;
+    background: var(--pine); display: grid; place-items: center;
+    box-shadow: 0 12px 24px -8px rgba(23,61,54,.6);
+  }
+  .fab svg { width: 22px; height: 22px; fill: #F7F3E8; }
+  .nav {
+    position: absolute; left: 14px; right: 14px; bottom: 12px; height: 60px;
+    background: rgba(255,252,246,.96); border: 1px solid var(--line); border-radius: 22px;
+    display: grid; grid-template-columns: repeat(3, 1fr); align-items: center;
+    box-shadow: 0 10px 26px -14px rgba(23,61,54,.4); backdrop-filter: blur(8px);
+  }
+  .nav .item { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 9.5px; color: #8B968F; }
+  .nav .item svg { width: 19px; height: 19px; fill: currentColor; }
+  .nav .item.on { color: var(--pine); font-weight: 700; }
+  .nav .item.on .bubble { background: var(--mint); }
+  .bubble { padding: 3px 12px; border-radius: 999px; display: grid; place-items: center; }
+
+  .legend { text-align: center; max-width: 720px; margin: 46px auto 0; color: #5A6960; font-size: 13px; }
+  .legend b { color: var(--pine); }
+</style>
+
+<header class="review">
+  <div class="kicker">MoliSync · Android UI review</div>
+  <h1>三个栏目，一条安静的同步流</h1>
+  <p class="lede">
+    用「纸张 + 松绿」取代默认 Material 的冷灰模板：暖色底、深绿品牌层、克制的描边卡片。
+    内容优先，状态只用小面积颜色表达。以下是文字 / 图片 / 文件 / 设置四屏的静态审阅稿。
+  </p>
+  <div class="notes">
+    <div class="note">默认 <b>≤ 15 MB</b> 存服务器，<b>&gt; 15 MB</b> 走 P2P，可在设置调整</div>
+    <div class="note">顶栏常驻 <b>在线数</b>（含本机）</div>
+    <div class="note">列表统一显示 <b>云端 / P2P</b> 徽标</div>
+    <div class="note">设置从右上角齿轮进入，不再占据首页</div>
+  </div>
+  <div class="swatches">
+    <span class="swatch"><i style="background:#173D36"></i>Pine #173D36</span>
+    <span class="swatch"><i style="background:#CFE9DC"></i>Mint #CFE9DC</span>
+    <span class="swatch"><i style="background:#F2EDE2"></i>Paper #F2EDE2</span>
+    <span class="swatch"><i style="background:#FFFCF6"></i>Card #FFFCF6</span>
+    <span class="swatch"><i style="background:#D99A3E"></i>Amber #D99A3E</span>
+  </div>
+</header>
+
+<main class="stage">
+  <!-- 文字 -->
+  <figure class="phone-wrap">
+    <div class="phone"><div class="screen">
+      <div class="hero">
+        <div class="statusbar"><span>9:41</span><span class="right">
+          <svg viewBox="0 0 24 24"><path d="M2 17h3v5H2zm5-4h3v9H7zm5-4h3v13h-3zm5-5h3v18h-3z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M12 20a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM4 12a12 12 0 0 1 16 0l-2 2a9 9 0 0 0-12 0zm4 4a7 7 0 0 1 8 0l-2 2a4 4 0 0 0-4 0z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M3 7h16v10H3zM20 10h1v4h-1z"/></svg>
+        </span></div>
+        <div class="brandrow">
+          <svg class="mark" viewBox="0 0 108 108"><rect width="108" height="108" rx="26" fill="#FFF9E9"/><path d="M29 48C30 37 39 29 50 29h22M79 60c-1 11-10 19-21 19H36" fill="none" stroke="#173D36" stroke-width="7" stroke-linecap="round"/><path d="m71 21 13 8-13 8ZM37 71l-24 8 13 8Z" fill="#173D36"/><path d="M43 39h18a6 6 0 0 1 6 6v19a6 6 0 0 1-6 6H43a6 6 0 0 1-6-6V45a6 6 0 0 1 6-6Z" fill="#173D36"/></svg>
+          <span class="brand">MoliSync</span>
+          <span class="spacer"></span>
+          <span class="online"><span class="dot"></span>2 在线</span>
+          <span class="gear"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm9.4 4a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2-1.2L16.5 3h-4l-.4 2.6a7.5 7.5 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7.5 7.5 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.06-.4.1-.8.1-1.2z"/></svg></span>
+        </div>
+        <h2>文字</h2>
+        <p>剪贴板与文本自动同步到所有在线设备</p>
+        <div class="rule"><span>34 条已保存</span><span>最近 09:41</span></div>
+      </div>
+      <div class="body">
+        <div class="day">今天</div>
+        <div class="card textcard">
+          <p>ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...<br>部署用的临时公钥，明天换掉。</p>
+          <div class="meta">
+            <span class="badge"><svg viewBox="0 0 24 24"><path d="M6 19a4 4 0 0 1 0-8 6 6 0 0 1 11.3-1.9A4.5 4.5 0 0 1 18 19z"/></svg>云端</span>
+            <span class="sep">·</span><span>Pixel 9</span><span class="sep">·</span><span>09:41</span>
+            <span class="copypill"><svg viewBox="0 0 24 24"><path d="M8 3h11v14h-3V6H8zM5 7h11v14H5z"/></svg></span>
+          </div>
+        </div>
+        <div class="card textcard">
+          <p>明天的会议改到 10:30，会议室 B。</p>
+          <div class="meta">
+            <span class="badge"><svg viewBox="0 0 24 24"><path d="M6 19a4 4 0 0 1 0-8 6 6 0 0 1 11.3-1.9A4.5 4.5 0 0 1 18 19z"/></svg>云端</span>
+            <span class="sep">·</span><span>电脑 C</span><span class="sep">·</span><span>08:52</span>
+            <span class="copypill"><svg viewBox="0 0 24 24"><path d="M8 3h11v14h-3V6H8zM5 7h11v14H5z"/></svg></span>
+          </div>
+        </div>
+        <div class="card textcard">
+          <p>docker compose pull &amp;&amp; docker compose up -d</p>
+          <div class="meta">
+            <span class="badge p2p"><svg viewBox="0 0 24 24"><path d="M3 12l7-7v4h11v6H10v4z"/></svg>P2P</span>
+            <span class="sep">·</span><span>电脑 C</span><span class="sep">·</span><span>昨天</span>
+          </div>
+        </div>
+      </div>
+      <div class="fab"><svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></div>
+      <nav class="nav">
+        <span class="item on"><span class="bubble"><svg viewBox="0 0 24 24"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h10v2H4z"/></svg></span>文字</span>
+        <span class="item"><span class="bubble"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zm2 3v9l3-3 2 2 3-4 4 5V7z"/></svg></span>图片</span>
+        <span class="item"><span class="bubble"><svg viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z"/></svg></span>文件</span>
+      </nav>
+    </div></div>
+    <figcaption><b>① 文字</b>历史常驻，按时间分组；云端与 P2P 用徽标区分</figcaption>
+  </figure>
+
+  <!-- 图片 -->
+  <figure class="phone-wrap">
+    <div class="phone"><div class="screen">
+      <div class="hero" style="padding-bottom:18px">
+        <div class="statusbar"><span>9:41</span><span class="right">
+          <svg viewBox="0 0 24 24"><path d="M2 17h3v5H2zm5-4h3v9H7zm5-4h3v13h-3zm5-5h3v18h-3z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M3 7h16v10H3zM20 10h1v4h-1z"/></svg>
+        </span></div>
+        <div class="brandrow">
+          <svg class="mark" viewBox="0 0 108 108"><rect width="108" height="108" rx="26" fill="#FFF9E9"/><path d="M29 48C30 37 39 29 50 29h22M79 60c-1 11-10 19-21 19H36" fill="none" stroke="#173D36" stroke-width="7" stroke-linecap="round"/><path d="m71 21 13 8-13 8ZM37 71l-24-8 13-8Z" fill="#173D36"/><path d="M43 39h18a6 6 0 0 1 6 6v19a6 6 0 0 1-6 6H43a6 6 0 0 1-6-6V45a6 6 0 0 1 6-6Z" fill="#173D36"/></svg>
+          <span class="brand">MoliSync</span>
+          <span class="spacer"></span>
+          <span class="online"><span class="dot"></span>2 在线</span>
+          <span class="gear"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm9.4 4a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2-1.2L16.5 3h-4l-.4 2.6a7.5 7.5 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7.5 7.5 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.06-.4.1-.8.1-1.2z"/></svg></span>
+        </div>
+        <h2>图片</h2>
+        <p>缩略图常驻云端，原图按需下载</p>
+      </div>
+      <div class="body">
+        <div class="chips"><span class="chip on">全部</span><span class="chip">云端</span><span class="chip">P2P</span></div>
+        <div class="grid">
+          <div class="thumb t1"><div class="cap"><span>09:32</span><span class="cloud"><svg viewBox="0 0 24 24"><path d="M6 19a4 4 0 0 1 0-8 6 6 0 0 1 11.3-1.9A4.5 4.5 0 0 1 18 19z"/></svg></span></div></div>
+          <div class="thumb t2"><div class="cap"><span>08:15</span><span class="cloud"><svg viewBox="0 0 24 24"><path d="M6 19a4 4 0 0 1 0-8 6 6 0 0 1 11.3-1.9A4.5 4.5 0 0 1 18 19z"/></svg></span></div></div>
+          <div class="thumb t3"><div class="cap"><span>昨天</span><span class="cloud"><svg viewBox="0 0 24 24"><path d="M6 19a4 4 0 0 1 0-8 6 6 0 0 1 11.3-1.9A4.5 4.5 0 0 1 18 19z"/></svg></span></div></div>
+          <div class="thumb t4"><div class="cap"><span>昨天</span><span class="cloud"><svg viewBox="0 0 24 24"><path d="M3 12l7-7v4h11v6H10v4z"/></svg></span></div></div>
+          <div class="thumb t5"><div class="cap"><span>周一</span><span class="cloud"><svg viewBox="0 0 24 24"><path d="M6 19a4 4 0 0 1 0-8 6 6 0 0 1 11.3-1.9A4.5 4.5 0 0 1 18 19z"/></svg></span></div></div>
+          <div class="thumb t6"><div class="cap"><span>周一</span><span class="cloud"><svg viewBox="0 0 24 24"><path d="M6 19a4 4 0 0 1 0-8 6 6 0 0 1 11.3-1.9A4.5 4.5 0 0 1 18 19z"/></svg></span></div></div>
+        </div>
+      </div>
+      <div class="fab"><svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></div>
+      <nav class="nav">
+        <span class="item"><span class="bubble"><svg viewBox="0 0 24 24"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h10v2H4z"/></svg></span>文字</span>
+        <span class="item on"><span class="bubble"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zm2 3v9l3-3 2 2 3-4 4 5V7z"/></svg></span>图片</span>
+        <span class="item"><span class="bubble"><svg viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z"/></svg></span>文件</span>
+      </nav>
+    </div></div>
+    <figcaption><b>② 图片</b>双列瀑布网格；超过阈值的项自动打 P2P 徽标</figcaption>
+  </figure>
+
+  <!-- 文件 -->
+  <figure class="phone-wrap">
+    <div class="phone"><div class="screen">
+      <div class="hero" style="padding-bottom:18px">
+        <div class="statusbar"><span>9:41</span><span class="right">
+          <svg viewBox="0 0 24 24"><path d="M2 17h3v5H2zm5-4h3v9H7zm5-4h3v13h-3zm5-5h3v18h-3z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M3 7h16v10H3zM20 10h1v4h-1z"/></svg>
+        </span></div>
+        <div class="brandrow">
+          <svg class="mark" viewBox="0 0 108 108"><rect width="108" height="108" rx="26" fill="#FFF9E9"/><path d="M29 48C30 37 39 29 50 29h22M79 60c-1 11-10 19-21 19H36" fill="none" stroke="#173D36" stroke-width="7" stroke-linecap="round"/><path d="m71 21 13 8-13 8ZM37 71l-24-8 13-8Z" fill="#173D36"/><path d="M43 39h18a6 6 0 0 1 6 6v19a6 6 0 0 1-6 6H43a6 6 0 0 1-6-6V45a6 6 0 0 1 6-6Z" fill="#173D36"/></svg>
+          <span class="brand">MoliSync</span>
+          <span class="spacer"></span>
+          <span class="online"><span class="dot"></span>2 在线</span>
+          <span class="gear"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm9.4 4a7.4 7.4 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7.5 7.5 0 0 0-2-1.2L16.5 3h-4l-.4 2.6a7.5 7.5 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7.5 7.5 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.06-.4.1-.8.1-1.2z"/></svg></span>
+        </div>
+        <h2>文件</h2>
+        <p>断点续传下载，完成前不占正式文件名</p>
+      </div>
+      <div class="body">
+        <div class="search"><svg viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 0 3.5 10.9L19 20.4 20.4 19l-5.5-5.5A6 6 0 0 0 10 4z"/></svg>搜索文件名</div>
+        <div class="card">
+          <div class="filerow">
+            <span class="ftype pdf">PDF</span>
+            <div><div class="fname">2026-Q3-report.pdf</div><div class="fmeta">4.2 MB · 来自 电脑 C · 云端</div></div>
+            <span class="dl"><svg viewBox="0 0 24 24"><path d="M11 3h2v10l3-3 1.4 1.4L12 17l-5.4-5.6L8 10l3 3zM5 19h14v2H5z"/></svg></span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="filerow">
+            <span class="ftype zip">ZIP</span>
+            <div><div class="fname">deploy-bundle.zip</div><div class="fmeta">86.5 MB · 来自 Pixel 9 · P2P</div></div>
+            <span class="dl"><svg viewBox="0 0 24 24"><path d="M11 3h2v10l3-3 1.4 1.4L12 17l-5.4-5.6L8 10l3 3zM5 19h14v2H5z"/></svg></span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="filerow">
+            <span class="ftype mp4">MP4</span>
+            <div><div class="fname">screen-2026-10-22.mp4</div><div class="fmeta">128.0 MB · 来自 电脑 C · P2P</div></div>
+            <span class="dl"><svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg></span>
+          </div>
+          <div class="progress"><i></i></div>
+          <div class="meta" style="margin-top:6px">正在续传 · 68% · 12.4 MB/s</div>
+        </div>
+        <div class="card">
+          <div class="filerow">
+            <span class="ftype doc">DOC</span>
+            <div><div class="fname">会议纪要-1021.docx</div><div class="fmeta">312 KB · 来自 Pixel 9 · 云端</div></div>
+            <span class="dl"><svg viewBox="0 0 24 24"><path d="M11 3h2v10l3-3 1.4 1.4L12 17l-5.4-5.6L8 10l3 3zM5 19h14v2H5z"/></svg></span>
+          </div>
+        </div>
+      </div>
+      <div class="fab"><svg viewBox="0 0 24 24"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></div>
+      <nav class="nav">
+        <span class="item"><span class="bubble"><svg viewBox="0 0 24 24"><path d="M4 5h16v2H4zm0 6h16v2H4zm0 6h10v2H4z"/></svg></span>文字</span>
+        <span class="item"><span class="bubble"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zm2 3v9l3-3 2 2 3-4 4 5V7z"/></svg></span>图片</span>
+        <span class="item on"><span class="bubble"><svg viewBox="0 0 24 24"><path d="M6 2h8l4 4v16H6z"/></svg></span>文件</span>
+      </nav>
+    </div></div>
+    <figcaption><b>③ 文件</b>行式列表；下载中直接展示进度与速率</figcaption>
+  </figure>
+
+  <!-- 设置 -->
+  <figure class="phone-wrap">
+    <div class="phone"><div class="screen">
+      <div class="hero" style="padding-bottom:20px">
+        <div class="statusbar"><span>9:41</span><span class="right">
+          <svg viewBox="0 0 24 24"><path d="M2 17h3v5H2zm5-4h3v9H7zm5-4h3v13h-3zm5-5h3v18h-3z"/></svg>
+          <svg viewBox="0 0 24 24"><path d="M3 7h16v10H3zM20 10h1v4h-1z"/></svg>
+        </span></div>
+        <div class="backrow">
+          <span class="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7 1.4-1.4L10.8 12l5.6-5.6z"/></svg></span>
+          <h2>设置</h2>
+          <span class="spacer"></span>
+          <span class="online"><span class="dot"></span>已连接</span>
+        </div>
+      </div>
+      <div class="body">
+        <div class="card settingcard">
+          <div class="srow"><span class="label">连接</span><span class="value">sync.molirain.com</span></div>
+          <div class="divider"></div>
+          <div class="srow"><span class="label">本机</span><span class="value">Pixel 9 · 在线</span></div>
+          <div class="fingerprint">SHA-256 9F2C 41A8 D3E0 7B55 … 4C19</div>
+          <div class="srow"><span class="label">在线设备</span><span class="value">2 台（含本机）</span></div>
+        </div>
+
+        <div class="card settingcard">
+          <div class="srow"><span class="label">同步阈值</span><span class="value" style="color:#173D36;font-weight:700">15 MB</span></div>
+          <div class="slider"><span class="fill"></span><span class="knob"></span></div>
+          <div class="scale"><span>5 MB</span><span>50 MB</span></div>
+          <div class="hint">小于阈值的项目保存到服务器并广播给所有设备；超过阈值的项目只走 P2P，选择目标设备后立即传输。</div>
+        </div>
+
+        <div class="card settingcard">
+          <div class="srow"><span class="label">云端存储</span><span class="value">128 MB / 5 GB</span></div>
+          <div class="usagebar"><i></i></div>
+          <div class="hint">保存在 Docker 卷中，容器重建不会丢失。</div>
+        </div>
+
+        <div class="card settingcard">
+          <div class="srow"><span class="label">自动下载</span><span class="value">仅 Wi-Fi</span></div>
+          <div class="divider"></div>
+          <div class="srow"><span class="label">重新授权证书</span><span class="value">›</span></div>
+          <div class="divider"></div>
+          <div class="srow"><span class="label">断开并清除设置</span><span class="value" style="color:#A6403B">›</span></div>
+        </div>
+      </div>
+    </div></div>
+    <figcaption><b>④ 设置</b>从齿轮进入；阈值、存储与证书都在这里</figcaption>
+  </figure>
+</main>
+
+<p class="legend">
+  审阅重点：<b>暖纸张 + 深松绿</b>是否接受？三栏结构、底部胶囊导航、<b>15 MB 阈值</b>与云端/P2P 徽标是否符合预期？
+  确认后再落地 Compose，并同步补服务端持久化与 Docker 卷。
+</p>
+</html>

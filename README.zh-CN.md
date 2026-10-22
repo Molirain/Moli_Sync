@@ -31,8 +31,8 @@ MoliSync 是一个开源项目，用于在你自己掌控的设备之间传输�
                         │ 已验证的身份头
                   受信反向代理
                         │ 私有 Docker 网络 / 回环
-                  Go 控制面服务
-                  在线设备与候选端点
+                  Go 控制面 + 持久化存储
+                  在线设备 · 记录 · blob
 
               计划中的数据面：P2P 直连，其次加密中继
 ```
@@ -41,18 +41,41 @@ MoliSync 是一个开源项目，用于在你自己掌控的设备之间传输�
 - **设备身份：**默认以客户端证书的 SHA-256 小写指纹作为稳定的 `DeviceID`。
 - **反向代理信任边界：**服务端只信任配置白名单内的代理 CIDR。代理必须先清除客户端自带的身份头，再写入自行验证的头。
 - **数据面：**协议已定义分帧流式数据格式；P2P 信令、会话票据及中继仍属于计划功能，服务端尚未端到端实现。
+- **云端持久化：**文字（≤64 KiB）存入 SQLite；图片与文件流式写入 blob 目录，下载支持 HTTP Range。记录不自动过期，且只有发送者能删除。Docker 部署下两者都在 `molisync-data` 卷内。
+
+## 同步规则
+
+| 内容 | 行为 |
+| --- | --- |
+| 文字 | ≤64 KiB，始终保存在服务器，所有已授权设备可见，一键复制 |
+| 图片/文件 ≤ 阈值 | 每次由客户端询问：存服务器，或 P2P 直连 |
+| 图片/文件 > 阈值 | 只能 P2P |
+| 默认阈值 | 15 MiB，Android 客户端可在 5–50 MiB 之间调整 |
+| 服务端保留 | 永久，无自动清理、暂无配额 |
+| 下载 | `GET /api/v1/blobs/{id}`，支持 Range 断点续传 |
+
+Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服务端提供一组精简 HTTP API 与 WebSocket 通知：
+
+| 端点 | 作用 |
+| --- | --- |
+| `GET /api/v1/records` | 拉取记录（`kind`、`limit`、`before`） |
+| `POST /api/v1/records/text` | 保存文字记录并广播 |
+| `POST /api/v1/records/blob` | 流式上传图片/文件（`kind`、`name`、`mime`，可选 `X-Blake3`） |
+| `GET /api/v1/blobs/{id}` | 下载 blob，支持 Range |
+| `DELETE /api/v1/records/{id}` | 删除自己的记录与 blob |
 
 ## 实现状态
 
 | 能力 | 状态 |
 | --- | --- |
 | Go 服务端配置、受信代理 mTLS 身份、设备表、WebSocket 在线状态与 API | 基础已实现 |
-| 同步记录、P2P 票据、中继与数据帧的协议定义 | 协议已定义；服务端处理器尚未完成 |
-| Windows 证书筛选、控制面客户端、剪贴板/占位、Range 下载与 LAN/VPN 竞速 | 客户端模块已实现；服务端同步/P2P 集成未完成 |
-| Android KeyChain mTLS、系统分享、基于 PFD 的流式发送、BLAKE3 分帧与前台服务 | 客户端模块已实现；需要兼容的接收端与 P2P 信令 |
-| 端到端同步、P2P 票据交换、可互操作的对端监听、中继与完整下载流程 | 尚未完成 |
+| 云端持久化：SQLite 元数据、blob 目录、Range 下载、仅发送者可删除、Docker 卷 | 已实现 |
+| 同步记录、P2P 票据、中继与数据帧的协议定义 | 协议已定义；P2P 与中继处理器尚未完成 |
+| Windows 证书筛选、控制面客户端、剪贴板/占位、Range 下载与 LAN/VPN 竞速 | 客户端模块已实现；暂无上传界面 |
+| Android KeyChain mTLS、三栏云界面、流式 HTTP 上传、Range 下载、系统分享、基于 PFD 的发送、BLAKE3 分帧与前台服务 | 已实现 |
+| 端到端 P2P 同步、票据交换、可互操作的对端监听、中继 | 尚未完成 |
 
-Android 客户端目前支持“分享并发送”文件，尚未实现接收端或剪贴板文本同步。P2P 连接器还需要服务端信令与对端监听才能完成直连。服务端目前实现设备注册、心跳、ping 和在线状态广播；记录发布、P2P offer、中继等协议消息尚未全部接入。
+文字同步已经可以跨设备通过服务器完成，阈值内的图片/文件也能从任意已授权客户端存取。P2P 仍不可用：服务端还缺 P2P 信令、会话票据与中继管道，因此 Android 客户端会明确失败而不会静默降级。Windows 客户端可接收文字与文件占位，但尚不能上传。
 
 ## Docker 快速开始
 
@@ -94,6 +117,8 @@ proxy_set_header X-Client-DN $ssl_client_s_dn;
 | `MOLISYNC_PROXY_TRUSTED_CIDRS` | 允许断言身份的代理网段。必须与 Compose 子网一致，且只有反向代理可以加入该网络。 |
 | `MOLISYNC_PROXY_VERIFY_HEADER` / `..._FINGERPRINT_HEADER` / `..._DN_HEADER` | 代理透传校验结果、证书指纹与 Subject 的头名称。 |
 | `MOLISYNC_AUTH_DEVICE_ID_SOURCE` | `fingerprint`（推荐）或 `dn_cn`。 |
+| `MOLISYNC_STORAGE_DATA_DIR` | SQLite 与默认 blob 根目录。镜像内为 `/var/lib/molisync`，由 `molisync-data` 卷支撑。 |
+| `MOLISYNC_STORAGE_MAX_ITEM_BYTES` | 单个上传 blob 上限，默认 64 MiB。 |
 | `MOLISYNC_LOG_LEVEL` / `MOLISYNC_LOG_FORMAT` | `debug`/`info`/`warn`/`error` 与 `json`/`text`。 |
 
 注意：
@@ -102,6 +127,7 @@ proxy_set_header X-Client-DN $ssl_client_s_dn;
 - 若要用 YAML 配置文件替代环境变量，请只读挂载并传入 `-config`：`./server/config.yaml:/config.yaml:ro`，并设置 `command: ["-config", "/config.yaml"]`。环境变量仍然优先于文件。
 - 镜像健康检查通过二进制自身的 `-healthcheck-url` 探测 `http://127.0.0.1:9520/healthz`。若修改监听端口，请同时覆盖 Compose 健康检查。
 - 私有 GHCR 包需要先 `docker login ghcr.io`，或在包设置中改为公开后才能拉取。
+- 记录与 blob 保存在命名卷 `molisync-data` 中，容器重建不会丢失。请备份该卷（至少备份 SQLite 数据库与 `blobs/` 目录）；删除卷即删除全部同步内容。Compose 对容器设置了 `read_only: true`，所有写入都只落在卷内。
 
 本地构建镜像：
 

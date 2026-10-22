@@ -31,8 +31,8 @@ MoliSync is an open-source project for moving files and synchronized data betwee
                         │ authenticated identity headers
                  Trusted reverse proxy
                         │ private Docker network / loopback
-                 Go control plane
-                 device presence + endpoints
+                 Go control plane + durable store
+                 presence · records · blobs
 
           Planned data plane: direct P2P, then encrypted relay
 ```
@@ -41,18 +41,41 @@ MoliSync is an open-source project for moving files and synchronized data betwee
 - **Device identity:** by default, the server uses the lowercase SHA-256 fingerprint of the client certificate as the stable `DeviceID`.
 - **Proxy trust boundary:** the server accepts identity headers only from configured trusted proxy CIDRs. The proxy must remove client-supplied copies of those headers before setting its own values.
 - **Data plane:** the protocol defines framed streaming data. Direct P2P coordination, session-ticket issuance, and relay are planned; they are not yet implemented end to end by the server.
+- **Durable cloud records:** text (up to 64 KiB) is stored in SQLite. Images and files are streamed into a blob directory and downloaded with HTTP Range support. Records never expire automatically and can only be deleted by their sender. In Docker both live in the `molisync-data` volume.
+
+## Sync model
+
+| Content | Behaviour |
+| --- | --- |
+| Text | Up to 64 KiB, always stored on the server, visible to every authorized device, one tap to copy |
+| Image / file ≤ threshold | The client asks every time: store on the server, or send peer-to-peer |
+| Image / file > threshold | Peer-to-peer only |
+| Default threshold | 15 MiB, adjustable at runtime between 5 and 50 MiB inside the Android client |
+| Server retention | Indefinite; no automatic cleanup, no quota yet |
+| Download | `GET /api/v1/blobs/{id}` with Range resume |
+
+The Android client implements this model in three tabs (text, images, files). The server exposes it as a small HTTP API plus WebSocket notifications:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/v1/records` | List records (`kind`, `limit`, `before`) |
+| `POST /api/v1/records/text` | Store a text record and broadcast it |
+| `POST /api/v1/records/blob` | Stream an image/file body (`kind`, `name`, `mime`, optional `X-Blake3`) |
+| `GET /api/v1/blobs/{id}` | Download a blob, with Range support |
+| `DELETE /api/v1/records/{id}` | Delete your own record and blob |
 
 ## Implementation status
 
 | Capability | Status |
 | --- | --- |
 | Go server configuration, trusted-proxy mTLS identity, device registry, WebSocket presence and API | Implemented foundation |
-| Protocol definition for sync records, P2P tickets, relay and data frames | Defined; server handlers are incomplete |
-| Windows certificate selection, control-plane client, clipboard/placeholder handling, Range download and LAN/VPN race connector | Client modules implemented; server-side sync/P2P integration remains incomplete |
-| Android KeyChain mTLS, share intents, PFD-based streaming sender, BLAKE3 framing and foreground service | Client modules implemented; requires a compatible receiving peer and P2P signaling |
-| End-to-end sync, P2P ticket exchange, interoperable peer listener, relay and complete download flow | Not yet complete |
+| Durable text/image/file records: SQLite metadata, blob directory, Range download, owner-only delete, Docker volume | Implemented |
+| Protocol definition for sync records, P2P tickets, relay and data frames | Defined; P2P and relay handlers are incomplete |
+| Windows certificate selection, control-plane client, clipboard/placeholder handling, Range download and LAN/VPN race connector | Client modules implemented; no upload UI yet |
+| Android KeyChain mTLS, three-tab cloud UI, streaming HTTP upload, Range download, share intents, PFD-based sender, BLAKE3 framing and foreground service | Implemented |
+| End-to-end P2P sync, ticket exchange, interoperable peer listener, relay | Not yet complete |
 
-The Android client currently sends shared files; it does not yet implement a receiver or clipboard text synchronization. Its P2P connector needs server signaling and a peer listener before direct transfer can work. The server currently supports device registration, heartbeat, ping and presence; protocol messages for record publishing, P2P offers and relay are not all handled.
+Text sync across devices works today through the server, and images/files up to the configured limit can be stored and downloaded from any authorized client. P2P remains unavailable: the Android client fails explicitly instead of silently downgrading, because the server still needs P2P signaling, session tickets and a relay pipe. The Windows client receives text and file placeholders but cannot upload yet.
 
 ## Quick start with Docker
 
@@ -94,6 +117,8 @@ Key container settings (all can be passed as environment variables; see [`server
 | `MOLISYNC_PROXY_TRUSTED_CIDRS` | Proxy CIDRs allowed to assert an identity. Must match the Compose subnet, and only the proxy should join that network. |
 | `MOLISYNC_PROXY_VERIFY_HEADER` / `..._FINGERPRINT_HEADER` / `..._DN_HEADER` | Header names the proxy uses for the verified result, certificate fingerprint and subject. |
 | `MOLISYNC_AUTH_DEVICE_ID_SOURCE` | `fingerprint` (recommended) or `dn_cn`. |
+| `MOLISYNC_STORAGE_DATA_DIR` | SQLite database and default blob root. The image uses `/var/lib/molisync`, backed by the `molisync-data` volume. |
+| `MOLISYNC_STORAGE_MAX_ITEM_BYTES` | Maximum size of one uploaded blob, default 64 MiB. |
 | `MOLISYNC_LOG_LEVEL` / `MOLISYNC_LOG_FORMAT` | `debug`/`info`/`warn`/`error` and `json`/`text`. |
 
 Notes:
@@ -102,6 +127,7 @@ Notes:
 - To use a YAML configuration instead of environment variables, mount it read-only and pass `-config`: `./server/config.yaml:/config.yaml:ro` plus `command: ["-config", "/config.yaml"]`. Environment variables still win over the file.
 - The image health check calls the binary's `-healthcheck-url` probe against `http://127.0.0.1:9520/healthz`. If you change the listen port, override the Compose health check too.
 - Private GHCR packages must be pulled after `docker login ghcr.io` or made public in the package settings.
+- Records and blobs persist across container rebuilds in the named volume `molisync-data`. Back up that volume (or at least the SQLite database and `blobs/` directory); deleting it deletes all synced content. Compose sets `read_only: true` for the container, so nothing is written outside the volume.
 
 Build the image locally:
 

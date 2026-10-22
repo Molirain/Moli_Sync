@@ -1,12 +1,14 @@
 # MoliSync Android 客户端
 
 Kotlin + Jetpack Compose 客户端，面向 Android 8.0（API 26）及以上，`targetSdk 35`。
-本模块聚焦三件事：
+本模块聚焦四件事：
 
 1. **系统 KeyChain mTLS**：证书与私钥由 Android 系统托管，应用只保存证书别名。
-2. **系统分享零拷贝发送**：接管 `ACTION_SEND` / `ACTION_SEND_MULTIPLE`，直接流式读取
+2. **三栏云同步**：文字、图片、文件三个标签页共享服务端持久化记录；文字一律上传服务器，
+   图片/文件在阈值内可每次选择云端或 P2P。
+3. **系统分享零拷贝发送**：接管 `ACTION_SEND` / `ACTION_SEND_MULTIPLE`，直接流式读取
    `content://` 句柄，不把文件复制到应用缓存。
-3. **前台数据同步服务**：大文件传输由 `dataSync` 类型的前台服务接管，通知栏实时展示
+4. **前台数据同步服务**：大文件传输由 `dataSync` 类型的前台服务接管，通知栏实时展示
    速率/进度，并适配 Android 14 权限与 Android 15 `onTimeout`。
 
 ## 构建
@@ -84,6 +86,34 @@ Secrets，不会在 PR 验证 job 中暴露它们。
 
 私钥不会以任何形式导出到文件或 SharedPreferences；所有 TLS 签名都在系统 keystore 内完成。
 
+首次配置保存后直接进入三栏主界面；后续启动若已保存服务器地址、证书别名与指纹则跳过配置页。
+需要更换服务器或证书时，从右上角齿轮进入“设置 → 重新授权证书 / 断开并清除配置”。
+
+## 三栏主界面与云同步
+
+主界面分为 **文字 / 图片 / 文件** 三栏，数据来自服务端持久化记录，通过
+`GET /api/v1/records` 拉取；控制面 WebSocket 的 `sync_record` 仅作为刷新信号，触发列表重载。
+
+| 内容 | 规则 |
+| --- | --- |
+| 文字 | 上限 64 KiB，**始终**上传服务器；所有设备可见，可复制到剪贴板 |
+| 图片 / 文件 | 单个 ≤ 设置阈值时，每次发送询问“保存到服务器”还是“P2P 直连”；> 阈值只允许 P2P |
+| 阈值 | 默认 15 MiB，可在设置页按 1 MiB 步进调整到 5–50 MiB |
+| 保存期限 | 服务端不自动过期；删除只能由发送者执行 |
+| 下载 | `GET /api/v1/blobs/{id}`，`OkHttp` 断点续传（`.part` + `Range`），保存到 `Android/data/com.molirain.molisync/files/Download`，无需存储权限 |
+
+顶栏“在线”胶囊显示在线设备数（其他在线设备 + 本机）；本机在 `DeviceDirectory.self`
+中单独维护，因为服务端 `welcome` 的 `devices` 不包含自己。
+
+上传实现要点：
+
+- 上传前流式读取一遍 `content://` 计算整文件 BLAKE3，作为 `X-Blake3` 发送；
+- 上传体是自定义 `RequestBody`，直接边读边写，不复制到临时文件；
+- 失败时清理 `.part` 与已写入的半成品记录。
+
+图片栏目前使用渐变占位卡片（显示名称、大小、下载状态），服务端尚未生成缩略图；
+下载后可在系统文件管理器中打开。
+
 ### 服务端证书信任
 
 - 若存在 `app/src/main/assets/molisync_ca.crt`，控制面连接**只**信任该 CA 文件中的证书。
@@ -101,14 +131,16 @@ Secrets，不会在 PR 验证 job 中暴露它们。
 
 1. `ShareParser` 只接受 `content://` URI；通过 `OpenableColumns` 读取文件名与大小，
    不读取文件内容。无法获得大小的条目会保留在列表中，但禁止发起传输。
-2. 用户选择接收设备并点击“开始传输”时，`ShareActivity` 才打开
-   `ParcelFileDescriptor`（模式 `r`），并随 `TransferRequest` 一起交给前台服务。
-   URI 的临时授权仍有效，服务在同一进程内直接持有句柄。
-3. `TransferEngine` 每个文件使用一个复用的 1 MiB 缓冲区，边读边发送：
+2. 分享页先选择发送方式：
+   - **保存到服务器**：仅当所有条目都在阈值内；逐文件流式上传，显示总进度；
+   - **P2P 直连**：选择在线设备后由前台服务传输。
+3. 选择 P2P 时，`ShareActivity` 才打开 `ParcelFileDescriptor`（模式 `r`），并随
+   `TransferRequest` 一起交给前台服务。URI 的临时授权仍有效，服务在同一进程内直接持有句柄。
+4. `TransferEngine` 每个文件使用一个复用的 1 MiB 缓冲区，边读边发送：
    - 分块 BLAKE3-256 与整文件 BLAKE3-256；
    - 49 字节帧头：`type(1) + fileIndex(4) + offset(8) + length(4) + hash(32)`；
    - 写帧后立即 flush，通知栏进度由 `ProgressThrottler` 限制到约 400 ms 一次。
-4. 文件内容从不整体进入内存，也不写入应用缓存目录。
+5. 文件内容从不整体进入内存，也不写入应用缓存目录。
 
 只接受 `content://`，可避免 `file://` 路径穿越与任意本地文件读取；文件名会去除控制字符、
 路径分隔符，并限制为 255 字符。
@@ -147,21 +179,25 @@ Secrets，不会在 PR 验证 job 中暴露它们。
 
 ```
 app/src/main/java/com/molirain/molisync/
-├── MainActivity.kt                 服务器 URL / KeyChain 授权 / 在线设备
-├── MoliSyncApp.kt                  应用级依赖容器
+├── MainActivity.kt                 根导航：配置 / 主界面 / 设置
+├── MoliSyncApp.kt                  应用级依赖容器（控制面 + 云端仓库）
 ├── data/
-│   ├── ClientSettings.kt           URL 规范化、别名/指纹持久化
-│   ├── ControlPlaneClient.kt       mTLS WebSocket、hello/心跳/重连/设备表
+│   ├── ClientSettings.kt           URL、别名/指纹、云端阈值持久化
+│   ├── ControlPlaneClient.kt       mTLS WebSocket、hello/心跳/重连/设备表/同步信号
 │   ├── ControlPlaneModels.kt       控制面 DTO 与端点校验
-│   └── DeviceDirectory.kt          在线设备 StateFlow
+│   ├── DeviceDirectory.kt          在线设备与本机 StateFlow
+│   └── cloud/
+│       ├── CloudModels.kt          云端记录 DTO
+│       ├── CloudRepository.kt      records/blob HTTP API、流式上传、Range 下载
+│       └── FileDigest.kt           流式 BLAKE3
 ├── security/
 │   ├── Crypto.kt                   SHA-256 / 指纹校验 / 常量时间比较
 │   ├── KeyChainAdapter.kt          KeyChain 授权、身份加载、SSLContext
-│   ├── MtlsClientFactory.kt        OkHttp mTLS 客户端
+│   ├── MtlsClientFactory.kt        OkHttp mTLS 客户端（WS + HTTP）
 │   └── ServerTrust.kt              CA 钉扎 / 系统信任 / P2P 指纹钉扎
 ├── share/
 │   ├── ShareParser.kt              ACTION_SEND(_MULTIPLE)、content:// 元数据
-│   └── ShareActivity.kt            分享 UI、PFD 打开、启动服务
+│   └── ShareActivity.kt            分享 UI、云端/P2P 模式、PFD 打开、启动服务
 ├── transfer/
 │   ├── ChunkedFileSender.kt        1 MiB 流式读取 + BLAKE3
 │   ├── DataPlaneFrameWriter.kt     49 字节帧头
@@ -171,7 +207,13 @@ app/src/main/java/com/molirain/molisync/
 │   ├── TransferNotifications.kt    dataSync 通知
 │   ├── ProgressThrottler.kt        通知限频与速率计算
 │   └── TransferService.kt          前台服务生命周期
-└── ui/theme/Theme.kt               Compose 主题
+└── ui/
+    ├── HomeScreen.kt               三栏主界面、发送方式选择、进度
+    ├── CloudViewModel.kt           记录列表、上传/下载、消息事件
+    ├── SettingsScreen.kt           阈值、连接信息、重新授权、断开
+    ├── SetupScreen.kt              首次配置
+    ├── Formatters.kt               时间/大小/扩展名
+    └── theme/Theme.kt              暖纸张 + 松绿配色
 ```
 
 ## 单元测试
@@ -182,14 +224,16 @@ app/src/main/java/com/molirain/molisync/
 - 49 字节帧头的大端字段、部分 payload、ABORT 帧截断；
 - `TransferRequest` JSON 往返、指纹/端点/URI/大小上限校验；
 - 控制面 snake_case DTO 映射、设备端点过滤与优先级；
+- 云端记录 DTO 解析（扁平记录、可选字段、错误信封）；
+- 文件名净化与扩展名格式化；
 - SHA-256 / 指纹格式 / 常量时间比较。
 
 ```bash
 ./gradlew :app:testDebugUnitTest
 ```
 
-共 31 个测试。Android 特有的 KeyChain、PFD、通知与前台服务需要在真机/模拟器上做集成验证，
-JVM 单元测试不能替代这些系统交互。
+共 38 个测试。Android 特有的 KeyChain、PFD、通知、前台服务与真实 mTLS 上传需要在
+真机/模拟器上做集成验证，JVM 单元测试不能替代这些系统交互。
 
 ## 安全约束
 
@@ -204,6 +248,10 @@ JVM 单元测试不能替代这些系统交互。
 
 ## 当前限制
 
-- 本模块只实现“发送”方向；接收端的 HTTP Range 断点续传下载尚未包含在 Android 客户端中。
-- 纯文本分享只展示文本，不写入系统剪贴板；剪贴板同步属于后续双轨同步接入。
-- 服务端 P2P 信令、临时会话票据与中继转发尚未实现，因此当前无法完成端到端 P2P 传输。
+- 图片栏只有渐变占位卡片，没有真实缩略图；服务端不生成预览，需要下载后查看。
+- 服务端记录永不自动过期，也没有配额管理；长期使用会持续占用磁盘。
+- 服务端 P2P 信令、临时会话票据与中继转发尚未实现，因此 P2P 模式目前会明确失败并提示，
+  不会静默降级为明文连接。
+- 分享页的云端上传运行在 Activity 生命周期内（≤15 MiB，通常几秒）；超大文件只能走 P2P，
+  由前台服务接管。
+- Windows 客户端尚未提供云端上传界面，目前可接收文字与文件占位记录。
