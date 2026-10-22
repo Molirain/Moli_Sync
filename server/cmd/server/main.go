@@ -34,11 +34,16 @@ func main() {
 func run() error {
 	configPath := flag.String("config", "config.yaml", "path to the YAML configuration file")
 	printVersion := flag.Bool("version", false, "print the version and exit")
+	healthcheckURL := flag.String("healthcheck-url", "", "probe a running instance's /healthz endpoint and exit")
 	flag.Parse()
 
 	if *printVersion {
 		fmt.Println(version)
 		return nil
+	}
+
+	if *healthcheckURL != "" {
+		return healthcheck(*healthcheckURL)
 	}
 
 	explicitConfig := false

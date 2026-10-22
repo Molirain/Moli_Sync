@@ -1,0 +1,27 @@
+# Version control and local tooling
+.git
+.gitignore
+.gitattributes
+
+# Local build output and runtime state
+bin/
+data/
+*.exe
+*.db
+*.db-shm
+*.db-wal
+
+# Deployment-specific configuration and documentation
+config.yaml
+config.local.yaml
+*.local.yaml
+*.md
+docker-compose*.yml
+
+# Test and editor noise
+*.out
+coverage.html
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
