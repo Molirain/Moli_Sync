@@ -2,11 +2,19 @@
 server/bin/
 server/molisync-server
 server/molisync-server.exe
+client-windows/**/bin/
+client-windows/**/obj/
+client-windows/publish/
+client-windows/TestResults/
+**/TestResults/
+.vs/
 
 # Local configuration (contains deployment specific proxy/network settings)
 server/config.yaml
 server/config.local.yaml
+client-windows/client.json
 *.local.yaml
+*.user
 
 # Runtime state
 server/data/
