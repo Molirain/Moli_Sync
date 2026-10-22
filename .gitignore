@@ -1,0 +1,25 @@
+# Build output
+server/bin/
+server/molisync-server
+server/molisync-server.exe
+
+# Local configuration (contains deployment specific proxy/network settings)
+server/config.yaml
+server/config.local.yaml
+*.local.yaml
+
+# Runtime state
+server/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Test and coverage output
+*.out
+coverage.html
