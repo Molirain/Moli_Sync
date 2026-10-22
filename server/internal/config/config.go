@@ -60,6 +60,7 @@ type Config struct {
 	Proxy     ProxyConfig     `yaml:"proxy"`
 	Auth      AuthConfig      `yaml:"auth"`
 	Registry  RegistryConfig  `yaml:"registry"`
+	Storage   StorageConfig   `yaml:"storage"`
 	WebSocket WebSocketConfig `yaml:"websocket"`
 	Log       LogConfig       `yaml:"log"`
 }
@@ -99,6 +100,14 @@ type RegistryConfig struct {
 	SweepInterval         Duration `yaml:"sweep_interval" env:"MOLISYNC_REGISTRY_SWEEP_INTERVAL"`
 	MaxDevices            int      `yaml:"max_devices" env:"MOLISYNC_REGISTRY_MAX_DEVICES"`
 	MaxEndpointsPerDevice int      `yaml:"max_endpoints_per_device" env:"MOLISYNC_REGISTRY_MAX_ENDPOINTS_PER_DEVICE"`
+}
+
+// StorageConfig controls the durable record database and blob directory.
+type StorageConfig struct {
+	DataDir string `yaml:"data_dir" env:"MOLISYNC_STORAGE_DATA_DIR"`
+	// BlobDir defaults to <data_dir>/blobs when empty.
+	BlobDir      string `yaml:"blob_dir" env:"MOLISYNC_STORAGE_BLOB_DIR"`
+	MaxItemBytes int64  `yaml:"max_item_bytes" env:"MOLISYNC_STORAGE_MAX_ITEM_BYTES"`
 }
 
 // WebSocketConfig covers the control plane connection behaviour.
@@ -152,6 +161,11 @@ func Default() *Config {
 			SweepInterval:         Duration(15 * time.Second),
 			MaxDevices:            4096,
 			MaxEndpointsPerDevice: 16,
+		},
+		Storage: StorageConfig{
+			DataDir:      "./data",
+			BlobDir:      "",
+			MaxItemBytes: 64 << 20,
 		},
 		WebSocket: WebSocketConfig{
 			ReadLimitBytes:       64 << 10,
@@ -277,6 +291,13 @@ func (c *Config) Validate() error {
 	}
 	if c.Registry.MaxEndpointsPerDevice < 1 || c.Registry.MaxEndpointsPerDevice > 64 {
 		add("registry.max_endpoints_per_device: must be between 1 and 64")
+	}
+
+	if strings.TrimSpace(c.Storage.DataDir) == "" {
+		add("storage.data_dir: must not be empty")
+	}
+	if c.Storage.MaxItemBytes < 1<<10 || c.Storage.MaxItemBytes > 1<<30 {
+		add("storage.max_item_bytes: must be between %d and %d", 1<<10, 1<<30)
 	}
 
 	if c.WebSocket.ReadLimitBytes < 1024 || c.WebSocket.ReadLimitBytes > 1<<20 {

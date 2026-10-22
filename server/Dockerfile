@@ -20,15 +20,21 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     -ldflags "-s -w -X main.version=${VERSION}" \
     -o /out/molisync-server ./cmd/server
 
+# Pre-create the persistent data directory with the runtime UID so a named
+# volume initialised from this image is writable by the nonroot user.
+RUN mkdir -p /out/data && chown 65532:65532 /out/data
+
 # Runtime stage: distroless, non-root, no shell.
 FROM gcr.io/distroless/static-debian12:nonroot
 
 COPY --from=build /out/molisync-server /usr/local/bin/molisync-server
+COPY --from=build --chown=65532:65532 /out/data /var/lib/molisync
 
 # The service must accept connections from the reverse proxy container, so the
 # in-container default binds all interfaces. Nothing is published to the host
 # by the image itself.
 ENV MOLISYNC_SERVER_LISTEN=0.0.0.0:9520
+ENV MOLISYNC_STORAGE_DATA_DIR=/var/lib/molisync
 
 EXPOSE 9520
 

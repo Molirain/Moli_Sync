@@ -43,6 +43,12 @@ services:
       # "fingerprint" (recommended) or "dn_cn".
       MOLISYNC_AUTH_DEVICE_ID_SOURCE: "fingerprint"
 
+      # Durable storage: SQLite database and blobs live on the named volume
+      # below. MaxItemBytes caps a single cloud item; the client's 15 MiB
+      # threshold decides when to use P2P instead.
+      MOLISYNC_STORAGE_DATA_DIR: "/var/lib/molisync"
+      MOLISYNC_STORAGE_MAX_ITEM_BYTES: "67108864"
+
       MOLISYNC_LOG_LEVEL: "info"
       MOLISYNC_LOG_FORMAT: "json"
 
@@ -60,6 +66,11 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+
+    volumes:
+      # SQLite database + blobs. Removing the container keeps the records;
+      # `docker compose down -v` intentionally deletes them.
+      - molisync-data:/var/lib/molisync
 
     healthcheck:
       test:
@@ -83,3 +94,7 @@ networks:
       config:
         # Must match MOLISYNC_PROXY_TRUSTED_CIDRS above.
         - subnet: 172.28.0.0/24
+
+volumes:
+  molisync-data:
+    name: molisync-data

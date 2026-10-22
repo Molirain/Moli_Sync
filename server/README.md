@@ -60,10 +60,25 @@ docker run --rm -p 127.0.0.1:9520:9520 \
 
 - 服务端只加入私有网络 `molisync-internal`（`172.28.0.0/24`），不发布端口；
 - `MOLISYNC_PROXY_TRUSTED_CIDRS` 与该子网一致，**只有反向代理可以加入该网络**，否则任何容器都能伪造身份头；
-- `read_only`、`cap_drop: [ALL]`、`no-new-privileges`，并用镜像内置的 `-healthcheck-url` 做健康检查。
+- `read_only`、`cap_drop: [ALL]`、`no-new-privileges`，并用镜像内置的 `-healthcheck-url` 做健康检查；
+- 命名卷 `molisync-data` 挂载到 `/var/lib/molisync`，SQLite 数据库与 blob 都在卷内，容器重建不会丢记录。
 
-镜像默认 `MOLISYNC_SERVER_LISTEN=0.0.0.0:9520`，以便反代容器访问；不要把这个端口发布到宿主机或公网。
-如需 YAML 配置，挂载到 `/config.yaml:ro` 并设置 `command: ["-config", "/config.yaml"]`。
+镜像默认 `MOLISYNC_SERVER_LISTEN=0.0.0.0:9520`、`MOLISYNC_STORAGE_DATA_DIR=/var/lib/molisync`。
+不要把这个端口发布到宿主机或公网。如需 YAML 配置，挂载到 `/config.yaml:ro` 并设置
+`command: ["-config", "/config.yaml"]`；环境变量仍然优先于 YAML。
+
+## 持久化存储
+
+服务端把云记录写入 SQLite（`<data_dir>/molisync.db`，WAL 模式），blob 写入
+`<data_dir>/blobs/`（或 `storage.blob_dir`）。上传先写 `.part`，校验大小后原子重命名；
+数据库插入失败会回滚删除文件。
+
+- 文字记录上限 64 KiB。
+- 单个 blob 上限由 `storage.max_item_bytes` 控制，默认 64 MiB。
+- `GET /api/v1/blobs/{id}` 使用 `http.ServeContent`，原生支持 `Range` 断点续传、`206` 与 `416`。
+- 记录永不自动过期；删除只能由发送者本人执行。
+- 备份时同时备份 SQLite 数据库与 blob 目录（或整个卷）。
+
 
 ## 配置
 
@@ -81,6 +96,9 @@ docker run --rm -p 127.0.0.1:9520:9520 \
 | `proxy.required_verify_value` | `MOLISYNC_PROXY_REQUIRED_VERIFY_VALUE` | 通过值，默认 `SUCCESS` |
 | `auth.device_id_source` | `MOLISYNC_AUTH_DEVICE_ID_SOURCE` | `fingerprint`（默认）或 `dn_cn` |
 | `registry.offline_after` | `MOLISYNC_REGISTRY_OFFLINE_AFTER` | 无心跳判定离线时长，默认 `90s` |
+| `storage.data_dir` | `MOLISYNC_STORAGE_DATA_DIR` | SQLite 与默认 blob 根目录，默认 `./data`；容器内为 `/var/lib/molisync` |
+| `storage.blob_dir` | `MOLISYNC_STORAGE_BLOB_DIR` | blob 目录，空表示 `<data_dir>/blobs` |
+| `storage.max_item_bytes` | `MOLISYNC_STORAGE_MAX_ITEM_BYTES` | 单个 blob 上限，默认 `67108864`（64 MiB） |
 | `websocket.allowed_origins` | `MOLISYNC_WEBSOCKET_ALLOWED_ORIGINS` | 浏览器 Origin 白名单，空表示拒绝所有浏览器来源 |
 
 `device_id_source=fingerprint` 时 DeviceID 为小写 64 位十六进制指纹；`dn_cn` 时形如 `cn:手机-A`。两种命名空间不会冲突。
@@ -117,6 +135,11 @@ Nginx 请使用 `map` 生成 `$connection_upgrade`，并保持 `proxy_request_bu
 | GET | `/api/v1/me` | 是 | 返回当前证书身份（便于联调校验 Header） |
 | GET | `/api/v1/devices` | 是 | 在线设备快照（含候选 IP 池） |
 | GET | `/api/v1/ws` | 是 | WebSocket 控制面 |
+| GET | `/api/v1/records` | 是 | 云记录列表，支持 `kind=text|image|file`、`limit`、`before` |
+| POST | `/api/v1/records/text` | 是 | 保存文字记录并广播，body 为 `{"text":"..."}` |
+| POST | `/api/v1/records/blob` | 是 | 流式上传 blob，查询参数 `kind=image|file`、`name`、`mime`，可选 `X-Blake3` |
+| GET | `/api/v1/blobs/{id}` | 是 | 下载 blob，支持 HTTP Range 断点续传 |
+| DELETE | `/api/v1/records/{id}` | 是 | 删除自己的记录与 blob |
 
 鉴权失败返回 JSON：`{"error":{"code":"...","message":"..."}}`。
 
@@ -187,7 +210,13 @@ Nginx 请使用 `map` 生成 `$connection_upgrade`，并保持 `proxy_request_bu
 
 ### 当前实现范围
 
-第一阶段只实现 `hello`、`heartbeat`、`ping` 三类控制消息，以及在线状态广播。`publish_record`、`request_p2p`、`relay_request` 等消息已在 [proto/sync.proto](../proto/sync.proto) 中定义，服务端会对当前不支持的类型明确返回 `unsupported_message`，不会静默丢弃。
+控制面已实现 `hello`、`heartbeat`、`ping`、`publish_record`（仅文字）以及在线状态广播。
+`publish_record` 会把文字写入 SQLite，并向其他在线设备广播 `sync_record`；发送者收到
+`record_ack`。图片与文件通过 HTTP API 上传，服务端写入 blob 后同样广播 `sync_record`
+元数据。
+
+`request_p2p`、`relay_request` 等消息已在 [proto/sync.proto](../proto/sync.proto) 中定义，
+服务端仍会返回 `unsupported_message`，不会静默丢弃。
 
 ## 安全设计要点
 

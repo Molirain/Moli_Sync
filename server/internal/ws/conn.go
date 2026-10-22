@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/molirain/molisync/server/internal/auth"
 	"github.com/molirain/molisync/server/internal/registry"
+	"github.com/molirain/molisync/server/internal/store"
 )
 
 // maxCloseReasonBytes is the protocol limit for a close frame reason.
@@ -155,6 +157,8 @@ func (c *connection) handle(message inbound) bool {
 		}
 		c.enqueue(payload)
 		return true
+	case TypePublishRecord:
+		return c.handlePublishRecord(message)
 	default:
 		c.sendError(CodeUnsupportedMessage,
 			fmt.Sprintf("unsupported message type %s", strconv.Quote(truncate(message.Type, 32))), false)
@@ -273,6 +277,59 @@ func (c *connection) handleHeartbeat(message inbound) bool {
 		c.hub.broadcastPresence(PresenceUpdated, device, c.identity.DeviceID)
 	}
 	return true
+}
+
+func (c *connection) handlePublishRecord(message inbound) bool {
+	if !c.registered.Load() {
+		c.sendError(CodeNotRegistered, "send hello before publish_record", false)
+		return true
+	}
+	if message.Record == nil {
+		c.sendError(CodeInvalidRecord, "publish_record requires a record object", false)
+		return true
+	}
+	if c.hub.records == nil {
+		c.sendError(CodeStorageUnavailable, "record storage is not configured", false)
+		return true
+	}
+
+	kind := strings.ToLower(strings.TrimSpace(message.Record.Type))
+	if kind != store.KindText {
+		c.sendError(CodeInvalidRecord,
+			"publish_record accepts text records; upload images and files over HTTP", false)
+		return true
+	}
+	if strings.TrimSpace(message.Record.TextContent) == "" {
+		c.sendError(CodeInvalidRecord, "text_content must not be empty", false)
+		return true
+	}
+
+	senderName := c.hub.DeviceName(c.identity.DeviceID)
+	if senderName == "" {
+		senderName = c.identity.CommonName
+	}
+	record, err := c.hub.records.SaveText(c.hub.ctx, c.identity.DeviceID, senderName, message.Record.TextContent)
+	if err != nil {
+		if errors.Is(err, store.ErrTooLarge) {
+			c.sendError(CodeInvalidRecord, "text record exceeds the size limit", false)
+		} else {
+			c.hub.logger.Error("persist text record", "device_id", c.identity.DeviceID, "error", err)
+			c.sendError(CodeInternalError, "cannot persist the record", false)
+		}
+		return true
+	}
+
+	c.hub.BroadcastRecord(record)
+	ack, err := newOutbound(recordAckMessage{
+		Type:      TypeRecordAck,
+		RecordID:  record.RecordID,
+		CreatedAt: record.CreatedAt,
+	})
+	if err != nil {
+		c.hub.logger.Error("encode record ack", "record_id", record.RecordID, "error", err)
+		return false
+	}
+	return c.enqueue(ack)
 }
 
 func (c *connection) enqueue(message outbound) bool {

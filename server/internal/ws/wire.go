@@ -19,14 +19,17 @@ const ProtocolVersion = 1
 // Control-plane message types. The JSON wire format mirrors proto/sync.proto
 // field for field; every frame is a single JSON object with a "type" tag.
 const (
-	TypeHello        = "hello"
-	TypeHeartbeat    = "heartbeat"
-	TypePing         = "ping"
-	TypeWelcome      = "welcome"
-	TypeHeartbeatAck = "heartbeat_ack"
-	TypePong         = "pong"
-	TypePresence     = "presence"
-	TypeError        = "error"
+	TypeHello         = "hello"
+	TypeHeartbeat     = "heartbeat"
+	TypePing          = "ping"
+	TypeWelcome       = "welcome"
+	TypeHeartbeatAck  = "heartbeat_ack"
+	TypePong          = "pong"
+	TypePresence      = "presence"
+	TypeError         = "error"
+	TypePublishRecord = "publish_record"
+	TypeSyncRecord    = "sync_record"
+	TypeRecordAck     = "record_ack"
 )
 
 // Presence states broadcast to other devices.
@@ -48,6 +51,8 @@ const (
 	CodeRateLimited        = "rate_limited"
 	CodeServerShuttingDown = "server_shutting_down"
 	CodeInternalError      = "internal_error"
+	CodeInvalidRecord      = "invalid_record"
+	CodeStorageUnavailable = "storage_unavailable"
 )
 
 // inbound is a control-plane frame sent by a client.
@@ -55,6 +60,7 @@ type inbound struct {
 	Type      string               `json:"type"`
 	Device    *deviceMetadata      `json:"device,omitempty"`
 	Endpoints *[]registry.Endpoint `json:"endpoints,omitempty"`
+	Record    *recordPayload       `json:"record,omitempty"`
 }
 
 type deviceMetadata struct {
@@ -116,6 +122,45 @@ type presenceMessage struct {
 	Type   string     `json:"type"`
 	State  string     `json:"state"`
 	Device DeviceView `json:"device"`
+}
+
+// recordPayload is the client-supplied sync record in a publish_record frame.
+type recordPayload struct {
+	RecordID       string           `json:"record_id,omitempty"`
+	SenderDeviceID string           `json:"sender_device_id,omitempty"`
+	CreatedAt      int64            `json:"created_at,omitempty"`
+	Type           string           `json:"type,omitempty"`
+	TextContent    string           `json:"text_content,omitempty"`
+	FileMeta       *fileMetaPayload `json:"file_meta,omitempty"`
+}
+
+type fileMetaPayload struct {
+	BlobID     string `json:"blob_id,omitempty"`
+	FileName   string `json:"file_name,omitempty"`
+	FileSize   int64  `json:"file_size,omitempty"`
+	MimeType   string `json:"mime_type,omitempty"`
+	Blake3Hash string `json:"blake3_hash,omitempty"`
+}
+
+type syncRecordMessage struct {
+	Type   string         `json:"type"`
+	Record syncRecordView `json:"record"`
+}
+
+type syncRecordView struct {
+	RecordID       string           `json:"record_id"`
+	SenderDeviceID string           `json:"sender_device_id"`
+	SenderName     string           `json:"sender_name,omitempty"`
+	CreatedAt      int64            `json:"created_at"`
+	Type           string           `json:"type"`
+	TextContent    string           `json:"text_content,omitempty"`
+	FileMeta       *fileMetaPayload `json:"file_meta,omitempty"`
+}
+
+type recordAckMessage struct {
+	Type      string `json:"type"`
+	RecordID  string `json:"record_id"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 type errorMessage struct {

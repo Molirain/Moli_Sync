@@ -253,6 +253,12 @@ func TestUnsupportedMessageAndInvalidJSON(t *testing.T) {
 	}
 
 	sendJSON(t, connection, map[string]any{"type": "publish_record"})
+	invalidRecord := readEnvelope(t, connection)
+	if invalidRecord["type"] != TypeError || invalidRecord["code"] != CodeInvalidRecord {
+		t.Fatalf("unexpected response: %v", invalidRecord)
+	}
+
+	sendJSON(t, connection, map[string]any{"type": "teleport"})
 	unsupported := readEnvelope(t, connection)
 	if unsupported["type"] != TypeError || unsupported["code"] != CodeUnsupportedMessage {
 		t.Fatalf("unexpected response: %v", unsupported)

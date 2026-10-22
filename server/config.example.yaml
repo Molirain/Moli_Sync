@@ -51,6 +51,16 @@ registry:
   max_devices: 4096                             # MOLISYNC_REGISTRY_MAX_DEVICES
   max_endpoints_per_device: 16                  # MOLISYNC_REGISTRY_MAX_ENDPOINTS_PER_DEVICE
 
+storage:
+  # Durable SQLite database and blob directory. In Docker this must point at
+  # the mounted volume so records survive container recreation.
+  data_dir: "./data"                            # MOLISYNC_STORAGE_DATA_DIR
+  # Defaults to <data_dir>/blobs when empty.
+  blob_dir: ""                                  # MOLISYNC_STORAGE_BLOB_DIR
+  # A single cloud item may not exceed this size. The client threshold decides
+  # whether an item is uploaded at all; keep this >= that threshold.
+  max_item_bytes: 67108864                      # MOLISYNC_STORAGE_MAX_ITEM_BYTES
+
 websocket:
   read_limit_bytes: 65536                       # MOLISYNC_WEBSOCKET_READ_LIMIT_BYTES
   handshake_timeout: 10s                        # MOLISYNC_WEBSOCKET_HANDSHAKE_TIMEOUT

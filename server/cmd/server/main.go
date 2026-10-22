@@ -18,6 +18,7 @@ import (
 	"github.com/molirain/molisync/server/internal/auth"
 	"github.com/molirain/molisync/server/internal/config"
 	"github.com/molirain/molisync/server/internal/registry"
+	"github.com/molirain/molisync/server/internal/store"
 	"github.com/molirain/molisync/server/internal/ws"
 )
 
@@ -85,6 +86,20 @@ func serve(cfg *config.Config, logger *slog.Logger) error {
 		return err
 	}
 
+	records, err := store.Open(store.Options{
+		DataDir:      cfg.Storage.DataDir,
+		BlobDir:      cfg.Storage.BlobDir,
+		MaxItemBytes: cfg.Storage.MaxItemBytes,
+	})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := records.Close(); err != nil {
+			logger.Error("close record store", "error", err)
+		}
+	}()
+
 	authMiddleware, err := auth.NewMiddleware(auth.Options{
 		VerifyHeader:              cfg.Proxy.VerifyHeader,
 		FingerprintHeader:         cfg.Proxy.FingerprintHeader,
@@ -118,10 +133,12 @@ func serve(cfg *config.Config, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	hub.SetStore(records)
 
 	router := api.NewRouter(api.Deps{
 		Auth:   authMiddleware,
 		Hub:    hub,
+		Store:  records,
 		Logger: logger,
 	})
 

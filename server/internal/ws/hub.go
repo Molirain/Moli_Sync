@@ -23,6 +23,7 @@ import (
 	"github.com/molirain/molisync/server/internal/auth"
 	"github.com/molirain/molisync/server/internal/config"
 	"github.com/molirain/molisync/server/internal/registry"
+	"github.com/molirain/molisync/server/internal/store"
 )
 
 // Options configures connection limits, liveness and origin checking.
@@ -47,6 +48,7 @@ type Options struct {
 type Hub struct {
 	options        Options
 	devices        *registry.Registry
+	records        *store.Store
 	logger         *slog.Logger
 	now            func() time.Time
 	upgrader       websocket.Upgrader
@@ -146,6 +148,57 @@ func (h *Hub) Devices() []DeviceView {
 		views = append(views, newDeviceView(device))
 	}
 	return views
+}
+
+// SetStore attaches the durable record store. It must be called before the hub
+// starts serving requests.
+func (h *Hub) SetStore(records *store.Store) {
+	h.records = records
+}
+
+// DeviceName returns the registered display name of a device, or an empty
+// string when the device is not online.
+func (h *Hub) DeviceName(deviceID string) string {
+	device, ok := h.devices.Get(deviceID)
+	if !ok {
+		return ""
+	}
+	return device.Name
+}
+
+// BroadcastRecord fans a stored sync record out to every other online device.
+// The sender already has the record from the HTTP response.
+func (h *Hub) BroadcastRecord(record store.Record) {
+	message, err := newOutbound(syncRecordMessage{
+		Type:   TypeSyncRecord,
+		Record: toSyncRecordView(record),
+	})
+	if err != nil {
+		h.logger.Error("encode sync record", "record_id", record.RecordID, "error", err)
+		return
+	}
+	h.broadcast(message, record.SenderDeviceID)
+}
+
+func toSyncRecordView(record store.Record) syncRecordView {
+	view := syncRecordView{
+		RecordID:       record.RecordID,
+		SenderDeviceID: record.SenderDeviceID,
+		SenderName:     record.SenderName,
+		CreatedAt:      record.CreatedAt,
+		Type:           record.Kind,
+		TextContent:    record.Text,
+	}
+	if record.Kind != store.KindText {
+		view.FileMeta = &fileMetaPayload{
+			BlobID:     record.BlobID,
+			FileName:   record.FileName,
+			FileSize:   record.Size,
+			MimeType:   record.MimeType,
+			Blake3Hash: record.Blake3,
+		}
+	}
+	return view
 }
 
 // Shutdown closes every control connection and waits for the write pumps to
