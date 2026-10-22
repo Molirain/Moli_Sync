@@ -1,5 +1,7 @@
 # MoliSync
 
+<img src="assets/branding/molisync-icon-512.png" width="96" alt="MoliSync 图标">
+
 **安全优先的自托管跨端文件传输与同步项目 —— 围绕 mTLS 身份与流式 I/O 设计。**
 
 简体中文 · [English](README.md)
@@ -15,6 +17,7 @@ MoliSync 是一个开源项目，用于在你自己掌控的设备之间传输�
 | [`client-android/`](client-android/) | Kotlin / Jetpack Compose Android 客户端：KeyChain mTLS、系统分享、流式发送与前台数据同步服务。 |
 | [`proto/sync.proto`](proto/sync.proto) | 带版本的控制面与数据面协议定义。 |
 | [`docker-compose.example.yml`](docker-compose.example.yml) | 服务端容器加固后的 Compose 模板。 |
+| [`assets/branding/`](assets/branding/) | 统一图标源文件、PNG 渲染与可复现的生成脚本。 |
 | [`.github/workflows/`](.github/workflows/) | Android 构建/发布与服务端容器镜像流水线。 |
 | [架构白皮书](MoliSync%20分布式跨端同步与点对点流式互传系统技术架构白皮书.md) | 原始架构与部署设计说明。 |
 
@@ -177,6 +180,8 @@ Android 发布签名需要以下仓库 secrets：`ANDROID_KEYSTORE_BASE64`、`AN
 - [Android 客户端](client-android/README.md)
 - [协议定义](proto/sync.proto)
 - [架构白皮书](MoliSync%20分布式跨端同步与点对点流式互传系统技术架构白皮书.md)
+
+Android 启动器/通知图标、Windows 可执行文件图标与本页标识使用同一套“同步 + 文件”图形。服务端只提供 HTTP/WebSocket API，没有可打标的图形界面；[`assets/branding/`](assets/branding/) 保留共享源文件供后续 UI 使用。
 
 ## 许可证
 

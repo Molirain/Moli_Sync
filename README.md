@@ -1,5 +1,7 @@
 # MoliSync
 
+<img src="assets/branding/molisync-icon-512.png" width="96" alt="MoliSync icon">
+
 **Secure, self-hosted cross-device file transfer and sync — built around mTLS identity and streaming I/O.**
 
 [简体中文](README.zh-CN.md) · English
@@ -15,6 +17,7 @@ MoliSync is an open-source project for moving files and synchronized data betwee
 | [`client-android/`](client-android/) | Kotlin / Jetpack Compose Android client: KeyChain mTLS, system share intents, streaming sender and foreground data-sync service. |
 | [`proto/sync.proto`](proto/sync.proto) | Versioned control-plane and data-plane protocol definition. |
 | [`docker-compose.example.yml`](docker-compose.example.yml) | Hardened Compose template for the server container. |
+| [`assets/branding/`](assets/branding/) | Shared icon source, PNG renders and the reproducible renderer. |
 | [`.github/workflows/`](.github/workflows/) | Android build/release and server container image pipelines. |
 | [Architecture whitepaper](MoliSync%20分布式跨端同步与点对点流式互传系统技术架构白皮书.md) | Original architecture and deployment design notes (Chinese). |
 
@@ -177,6 +180,8 @@ Android release signing requires these repository secrets: `ANDROID_KEYSTORE_BAS
 - [Android client](client-android/README.md)
 - [Protocol definition](proto/sync.proto)
 - [Architecture whitepaper (Chinese)](MoliSync%20分布式跨端同步与点对点流式互传系统技术架构白皮书.md)
+
+The same sync-and-file mark is used for the Android launcher/notification icon, the Windows executable icon and this page. The server exposes only HTTP/WebSocket APIs, so it has no graphical surface to brand; [`assets/branding/`](assets/branding/) keeps the shared source for future UIs.
 
 ## License
 
