@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>MoliSync.Client</RootNamespace>
+    <AssemblyName>MoliSync.Client</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+
+    <!-- NativeAOT: publish with `dotnet publish -c Release -r win-x64`.
+         AOT analysis stays enabled during normal builds so reflection slips fail early. -->
+    <PublishAot>true</PublishAot>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+
+    <Version>0.1.0</Version>
+    <Authors>MoliSync</Authors>
+    <Description>MoliSync Windows control-plane and transfer client</Description>
+  </PropertyGroup>
+
+</Project>

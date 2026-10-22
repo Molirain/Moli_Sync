@@ -1,0 +1,16 @@
+{
+  "serverUrl": "https://sync.molirain.com",
+  "caCertificatePath": "C:\\ProgramData\\MoliSync\\ca.crt",
+  "expectedIssuerName": "CN=Molirain Root CA",
+  "clientCertificateThumbprint": null,
+  "deviceName": "Desktop C",
+  "platform": "windows",
+  "downloadDirectory": "C:\\Users\\Public\\Downloads\\MoliSync",
+  "autoCopyText": true,
+  "connectTimeoutSeconds": 20,
+  "p2p": {
+    "totalTimeoutMs": 1200,
+    "vpnStaggerMs": 300,
+    "candidateStaggerMs": 50
+  }
+}
