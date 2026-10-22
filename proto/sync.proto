@@ -1,0 +1,343 @@
+syntax = "proto3";
+
+package molisync.v1;
+
+option go_package = "github.com/molirain/molisync/gen/go/molisync/v1;molisyncv1";
+
+// MoliSync wire protocol, version 1.
+//
+// Transports
+// ----------
+// * Control plane: WebSocket /api/v1/ws. Frames are UTF-8 JSON objects with a
+//   "type" discriminator and snake_case field names identical to the proto
+//   fields below, for example:
+//
+//     {"type":"hello","device":{"name":"Phone A","platform":"android"},
+//      "endpoints":[{"network":"lan","ip":"192.168.1.20","port":9527,"priority":100}]}
+//
+//   Enumerated values use their lowercase JSON form ("lan", "vpn", "windows",
+//   "online", ...). One JSON object maps to exactly one ClientEnvelope or
+//   ServerEnvelope case. Unknown fields are ignored for forward compatibility.
+//
+// * Data plane: P2P TLS or relay byte streams. Chunks use the fixed binary
+//   layout documented on DataPlaneFrame.
+//
+// Identity
+// --------
+// A device never proves its identity inside the protocol. Identity is derived
+// exclusively from the mTLS client certificate at the trusted reverse proxy:
+// DeviceID is the lowercase SHA-256 fingerprint of the certificate, or
+// "cn:<common name>" when the server is configured with device_id_source=dn_cn.
+
+// ---------------------------------------------------------------------------
+// Common types
+// ---------------------------------------------------------------------------
+
+// Platform identifies the operating system of a device.
+enum Platform {
+  PLATFORM_UNSPECIFIED = 0;
+  PLATFORM_WINDOWS = 1;
+  PLATFORM_ANDROID = 2;
+  PLATFORM_LINUX = 3;
+  PLATFORM_MACOS = 4;
+  PLATFORM_IOS = 5;
+  PLATFORM_WEB = 6;
+}
+
+// Endpoint is one candidate address of a device's P2P listener.
+message Endpoint {
+  enum Network {
+    NETWORK_UNSPECIFIED = 0;
+    NETWORK_LAN = 1;
+    NETWORK_VPN = 2;
+  }
+
+  Network network = 1;
+  // Canonical textual IP address. Loopback, unspecified, multicast and
+  // link-local addresses are rejected by the server.
+  string ip = 2;
+  uint32 port = 3;
+  // Higher values are dialed first by the Happy Eyeballs race. Defaults are
+  // 100 for LAN and 50 for VPN. The server accepts values up to 1000.
+  uint32 priority = 4;
+}
+
+// DeviceDescriptor is the client controlled part of the device profile.
+message DeviceDescriptor {
+  // Human readable alias shown on other devices, 1-64 characters.
+  string name = 1;
+  Platform platform = 2;
+}
+
+// DeviceInfo is the server authoritative view of a registered device.
+message DeviceInfo {
+  string device_id = 1;
+  string common_name = 2;
+  string name = 3;
+  Platform platform = 4;
+  repeated Endpoint endpoints = 5;
+  // Unix milliseconds. connected_at is the first registration of the device,
+  // last_seen the most recent heartbeat or WebSocket pong.
+  int64 connected_at = 6;
+  int64 last_seen = 7;
+  // Number of live control-plane connections for this device. A device stays
+  // online until its last connection closes.
+  uint32 active_connections = 8;
+}
+
+// ---------------------------------------------------------------------------
+// Control plane: client to server
+// ---------------------------------------------------------------------------
+
+// ClientHello registers the connection. It must be the first frame and must
+// arrive within the configured hello timeout.
+message ClientHello {
+  DeviceDescriptor device = 1;
+  // Authoritative initial candidate pool. May be empty when the P2P listener
+  // is not running yet.
+  repeated Endpoint endpoints = 2;
+  string client_version = 3;
+  uint32 protocol_version = 4;
+}
+
+// ClientHeartbeat refreshes liveness and optionally replaces the candidate
+// pool. The server also refreshes liveness on WebSocket pong frames.
+message ClientHeartbeat {
+  // When present this list is authoritative, including an empty list. When
+  // absent the previously reported pool is kept.
+  repeated Endpoint endpoints = 1;
+  int64 client_time = 2;
+}
+
+// ClientPing is an application level round trip probe.
+message ClientPing {
+  int64 client_time = 1;
+}
+
+// PublishRecordRequest stores a cloud sync record and broadcasts it to all
+// other online devices.
+message PublishRecordRequest {
+  // sender_device_id is overwritten with the authenticated DeviceID.
+  SyncRecord record = 1;
+}
+
+// P2PTransferOffer asks the server to authorize a direct transfer by issuing
+// a SessionTicket to both devices.
+message P2PTransferOffer {
+  // Client generated UUID v7 used to correlate the transfer.
+  string session_id = 1;
+  // source_device_id and source_endpoints are overwritten with the
+  // authenticated identity and its current candidate pool.
+  string source_device_id = 2;
+  string target_device_id = 3;
+  repeated Endpoint source_endpoints = 4;
+  repeated FileEntry files = 5;
+}
+
+// RelayRequest asks for a transparent byte stream relay when direct dialing
+// fails.
+message RelayRequest {
+  string session_id = 1;
+  string target_device_id = 2;
+}
+
+// ClientEnvelope wraps every client to server control frame.
+message ClientEnvelope {
+  oneof message {
+    ClientHello hello = 1;
+    ClientHeartbeat heartbeat = 2;
+    ClientPing ping = 3;
+    PublishRecordRequest publish_record = 4;
+    P2PTransferOffer request_p2p = 5;
+    RelayRequest relay_request = 6;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Control plane: server to client
+// ---------------------------------------------------------------------------
+
+// ServerWelcome acknowledges registration and lists the other online devices.
+message ServerWelcome {
+  uint32 protocol_version = 1;
+  string device_id = 2;
+  int64 server_time = 3;
+  // Interval at which the client should send ClientHeartbeat.
+  int64 heartbeat_interval_ms = 4;
+  // Idle window after which the connection is considered dead.
+  int64 pong_timeout_ms = 5;
+  repeated DeviceInfo devices = 6;
+}
+
+// ServerHeartbeatAck acknowledges a ClientHeartbeat.
+message ServerHeartbeatAck {
+  int64 server_time = 1;
+  bool endpoints_changed = 2;
+}
+
+// ServerPong answers ClientPing.
+message ServerPong {
+  int64 server_time = 1;
+}
+
+// PresenceState describes a device table transition.
+enum PresenceState {
+  PRESENCE_STATE_UNSPECIFIED = 0;
+  PRESENCE_STATE_ONLINE = 1;
+  PRESENCE_STATE_UPDATED = 2;
+  PRESENCE_STATE_OFFLINE = 3;
+}
+
+// PresenceEvent is fanned out to every other online device.
+message PresenceEvent {
+  PresenceState state = 1;
+  DeviceInfo device = 2;
+}
+
+// ErrorCode is stable across protocol versions.
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  ERROR_CODE_INVALID_MESSAGE = 1;
+  ERROR_CODE_UNSUPPORTED_MESSAGE = 2;
+  ERROR_CODE_NOT_REGISTERED = 3;
+  ERROR_CODE_ALREADY_REGISTERED = 4;
+  ERROR_CODE_INVALID_DEVICE = 5;
+  ERROR_CODE_INVALID_ENDPOINTS = 6;
+  ERROR_CODE_TOO_MANY_DEVICES = 7;
+  ERROR_CODE_RATE_LIMITED = 8;
+  ERROR_CODE_SERVER_SHUTTING_DOWN = 9;
+  ERROR_CODE_INTERNAL = 10;
+  ERROR_CODE_UNAUTHORIZED = 11;
+}
+
+// ServerError reports a rejected frame. Fatal errors are followed by a close
+// frame, non fatal errors leave the connection usable.
+message ServerError {
+  ErrorCode code = 1;
+  string message = 2;
+  bool fatal = 3;
+}
+
+// SessionTicket authorizes a direct P2P transfer.
+message SessionTicket {
+  string session_id = 1;
+  // Exactly 32 cryptographically random bytes. Both devices use it as a
+  // TLS-PSK secret (or as key material for an AEAD handshake) and never send
+  // it back to the server. Treat it as a one-time secret.
+  bytes psk = 2;
+  string source_device_id = 3;
+  string target_device_id = 4;
+  repeated Endpoint source_endpoints = 5;
+  repeated Endpoint target_endpoints = 6;
+  int64 issued_at = 7;
+  int64 expires_at = 8;
+  // Absolute WebSocket relay URL used when both candidate pools are
+  // unreachable. Empty when relaying is disabled.
+  string relay_url = 9;
+}
+
+// RelayGrant authorizes a relay byte stream.
+message RelayGrant {
+  string session_id = 1;
+  string relay_url = 2;
+  int64 expires_at = 3;
+}
+
+// ServerEnvelope wraps every server to client control frame.
+message ServerEnvelope {
+  oneof message {
+    ServerWelcome welcome = 1;
+    ServerHeartbeatAck heartbeat_ack = 2;
+    ServerPong pong = 3;
+    PresenceEvent presence = 4;
+    SyncRecord sync_record = 5;
+    SessionTicket session_ticket = 6;
+    RelayGrant relay_grant = 7;
+    ServerError error = 8;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cloud sync records
+// ---------------------------------------------------------------------------
+
+// PayloadType selects which part of SyncRecord carries content.
+enum PayloadType {
+  PAYLOAD_TYPE_UNSPECIFIED = 0;
+  PAYLOAD_TYPE_TEXT = 1;
+  PAYLOAD_TYPE_IMAGE = 2;
+  PAYLOAD_TYPE_FILE = 3;
+}
+
+// CloudFileMeta describes an uploaded blob. Receivers store only this metadata
+// and download the body on demand with HTTP Range requests.
+message CloudFileMeta {
+  string blob_id = 1;
+  string file_name = 2;
+  int64 file_size = 3;
+  string mime_type = 4;
+  // Lowercase hex BLAKE3-256 digest of the complete file.
+  string blake3_hash = 5;
+  // Optional WebP preview, at most 15 KiB. Only set for images.
+  bytes thumbnail_webp = 6;
+}
+
+// SyncRecord is one entry of the text and small file sync space.
+message SyncRecord {
+  // UUID v7, generated by the sender and validated by the server.
+  string record_id = 1;
+  // Assigned by the server from the authenticated identity.
+  string sender_device_id = 2;
+  // Unix milliseconds.
+  int64 created_at = 3;
+  PayloadType type = 4;
+  // Set for PAYLOAD_TYPE_TEXT; the full text is synchronized.
+  optional string text_content = 5;
+  // Set for PAYLOAD_TYPE_IMAGE and PAYLOAD_TYPE_FILE.
+  CloudFileMeta file_meta = 6;
+}
+
+// ---------------------------------------------------------------------------
+// Data plane
+// ---------------------------------------------------------------------------
+
+// FileEntry describes one file of a P2P or relay transfer.
+message FileEntry {
+  uint32 file_index = 1;
+  string relative_path = 2;
+  int64 file_size = 3;
+  // Lowercase hex BLAKE3-256 digest of the complete file.
+  string blake3_hash = 4;
+}
+
+enum FrameType {
+  FRAME_TYPE_UNSPECIFIED = 0;
+  FRAME_TYPE_DATA = 1;
+  FRAME_TYPE_RESUME_REQUEST = 2;
+  FRAME_TYPE_FILE_ACK = 3;
+  FRAME_TYPE_ABORT = 255;
+}
+
+// DataPlaneFrame is one chunk inside an established TLS-PSK or relay stream.
+//
+// Both peers encode it with this fixed layout so chunk parsing never needs a
+// protobuf runtime:
+//
+//   offset  size  field
+//   0       1     frame_type (FrameType numeric value)
+//   1       4     file_index, big endian
+//   5       8     offset, big endian
+//   13      4     payload length, big endian
+//   17      32    BLAKE3-256 of payload (zeroed for control frames)
+//   49      N     payload
+//
+// FRAME_TYPE_RESUME_REQUEST carries a bitfield of received chunk indexes in
+// payload. FRAME_TYPE_FILE_ACK has an empty payload and confirms the digest of
+// the complete file at offset 0. FRAME_TYPE_ABORT may carry a UTF-8 reason.
+message DataPlaneFrame {
+  FrameType frame_type = 1;
+  uint32 file_index = 2;
+  uint64 offset = 3;
+  bytes chunk_hash = 4;
+  bytes payload = 5;
+}
