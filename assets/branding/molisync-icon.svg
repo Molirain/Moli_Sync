@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108" role="img" aria-label="MoliSync">
+  <title>MoliSync</title>
+  <rect width="108" height="108" fill="#173D36"/>
+  <path d="M29 48C30 37 39 29 50 29h22M79 60c-1 11-10 19-21 19H36"
+        fill="none" stroke="#FFF9E9" stroke-width="7"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M71 21 84 29 71 37ZM37 71 24 79 37 87Z" fill="#FFF9E9"/>
+  <path d="M43 39h18a6 6 0 0 1 6 6v19a6 6 0 0 1-6 6H43a6 6 0 0 1-6-6V45a6 6 0 0 1 6-6Z"
+        fill="#FFF9E9"/>
+  <path d="M47 47h11v3H47Zm0 7h11v3H47Zm0 7h8v3h-8Z" fill="#347D68"/>
+</svg>

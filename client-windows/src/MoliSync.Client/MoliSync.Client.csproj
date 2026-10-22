@@ -9,6 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>12</LangVersion>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <ApplicationIcon>app.ico</ApplicationIcon>
 
     <!-- NativeAOT: publish with `dotnet publish -c Release -r win-x64`.
          AOT analysis stays enabled during normal builds so reflection slips fail early. -->
@@ -19,9 +20,13 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
 
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>MoliSync</Authors>
     <Description>MoliSync Windows control-plane and transfer client</Description>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="app.ico" />
+  </ItemGroup>
 
 </Project>
