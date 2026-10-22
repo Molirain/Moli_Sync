@@ -1,0 +1,24 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MoliSync.Client.Views.MigrationWindow"
+        Width="560" Height="300"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource PaperBrush}">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="22">
+    <StackPanel Spacing="4">
+      <TextBlock Text="迁移数据目录" Classes="h2" />
+      <TextBlock x:Name="TargetText" Classes="caption" TextWrapping="Wrap" />
+    </StackPanel>
+    <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="8">
+      <ProgressBar x:Name="Progress" Minimum="0" Maximum="100" Height="6" />
+      <TextBlock x:Name="StatusText" Classes="caption" />
+      <TextBlock x:Name="FileText" Classes="caption" TextTrimming="CharacterEllipsis" />
+    </StackPanel>
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+      <TextBlock Text="迁移期间暂停下载；成功后删除旧目录。" Classes="caption" VerticalAlignment="Center" />
+      <Button Grid.Column="1" x:Name="CancelButton" Click="Cancel_OnClick">取消</Button>
+    </Grid>
+  </Grid>
+</Window>

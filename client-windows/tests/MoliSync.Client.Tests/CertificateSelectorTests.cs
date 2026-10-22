@@ -134,6 +134,72 @@ public sealed class CertificateSelectorTests
     }
 
     [Fact]
+    public void AutoSelectPrefersExplicitClientAuthenticationUsage()
+    {
+        using var authority = CreateAuthority("Molirain Root CA");
+        using var unrelated = CreateClient(authority, "Unrelated", clientAuthentication: false);
+        using var client = CreateClient(authority, "Windows-PC");
+
+        var result = CertificateSelector.SelectAuto(
+            new[] { unrelated, client },
+            new CertificateSelectionCriteria { Now = Now });
+
+        Assert.Same(client, result.Selected);
+        Assert.Equal(1, result.MatchCount);
+    }
+
+    [Fact]
+    public void AutoSelectUsesRememberedThumbprint()
+    {
+        using var authority = CreateAuthority("Molirain Root CA");
+        using var newer = CreateClient(authority, "PC-new", notAfter: Now.AddYears(3));
+        using var remembered = CreateClient(authority, "PC-remembered", notAfter: Now.AddYears(1));
+
+        var result = CertificateSelector.SelectAuto(
+            new[] { newer, remembered },
+            new CertificateSelectionCriteria { Now = Now, Thumbprint = remembered.Thumbprint });
+
+        Assert.Same(remembered, result.Selected);
+        Assert.Equal(2, result.MatchCount);
+    }
+
+    [Fact]
+    public void AutoSelectRejectsExpiredCertificate()
+    {
+        using var authority = CreateAuthority("Molirain Root CA");
+        using var expired = CreateClient(authority, "PC-expired", expired: true);
+
+        var result = CertificateSelector.SelectAuto(
+            new[] { expired },
+            new CertificateSelectionCriteria { Now = Now });
+
+        Assert.Null(result.Selected);
+        Assert.Contains(result.Diagnostics, line => line.Contains("validity", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ServerValidatorUsesWindowsTrustWhenNoAuthorityIsPinned()
+    {
+        using var authority = CreateAuthority("Molirain Root CA");
+        using var serverCertificate = CreateServerCertificate(authority);
+        var validator = new PinnedServerCertificateValidator(null, NullClientLog.Instance);
+
+        Assert.True(
+            validator.Validate(
+                sender: null,
+                serverCertificate,
+                chain: null,
+                SslPolicyErrors.None));
+
+        Assert.False(
+            validator.Validate(
+                sender: null,
+                serverCertificate,
+                chain: null,
+                SslPolicyErrors.RemoteCertificateChainErrors));
+    }
+
+    [Fact]
     public void ClientIdentityUsesSha256FingerprintAsDeviceId()
     {
         using var authority = CreateAuthority("Molirain Root CA");

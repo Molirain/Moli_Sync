@@ -133,6 +133,134 @@ public static class CertificateSelector
         };
     }
 
+    /// <summary>
+    /// Selects the best client identity without requiring a pinned CA. This is
+    /// the Windows-store experience: the user installs a client certificate
+    /// once, and MoliSync uses the newest usable one (or the remembered
+    /// thumbprint) without asking for a PFX or a CA file.
+    /// </summary>
+    public static CertificateSelectionResult SelectAuto(
+        IReadOnlyCollection<X509Certificate2> candidates,
+        CertificateSelectionCriteria criteria)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+        ArgumentNullException.ThrowIfNull(criteria);
+
+        var wantedThumbprint = NormalizeThumbprint(criteria.Thumbprint);
+        var diagnostics = new List<string>();
+        var usable = new List<X509Certificate2>();
+
+        foreach (var candidate in candidates)
+        {
+            var label = $"{candidate.GetNameInfo(X509NameType.SimpleName, forIssuer: false)} [{candidate.Thumbprint}]";
+            if (!IsUsableClientIdentity(candidate, criteria.Now, requireClientAuthenticationUsage: false, out var reason))
+            {
+                diagnostics.Add($"{label}: rejected, {reason}");
+                continue;
+            }
+
+            usable.Add(candidate);
+        }
+
+        // Prefer certificates that explicitly carry clientAuth EKU. Certs with
+        // no EKU at all are technically valid for every purpose, but the
+        // personal store usually also contains unrelated self-signed identities.
+        var explicitClientAuth = usable
+            .Where(HasExplicitClientAuthenticationUsage)
+            .ToList();
+        var matches = explicitClientAuth.Count > 0 ? explicitClientAuth : usable;
+
+        if (matches.Count == 0)
+        {
+            diagnostics.Add("no usable client certificate in CurrentUser\\MY");
+            return new CertificateSelectionResult
+            {
+                Selected = null,
+                MatchCount = 0,
+                Diagnostics = diagnostics,
+            };
+        }
+
+        matches.Sort((left, right) =>
+        {
+            if (wantedThumbprint is not null)
+            {
+                var leftPinned = string.Equals(
+                    NormalizeThumbprint(left.Thumbprint), wantedThumbprint, StringComparison.Ordinal);
+                var rightPinned = string.Equals(
+                    NormalizeThumbprint(right.Thumbprint), wantedThumbprint, StringComparison.Ordinal);
+                if (leftPinned != rightPinned)
+                {
+                    return leftPinned ? -1 : 1;
+                }
+            }
+
+            var byExpiry = right.NotAfter.CompareTo(left.NotAfter);
+            return byExpiry != 0 ? byExpiry : string.CompareOrdinal(left.Thumbprint, right.Thumbprint);
+        });
+
+        var selected = matches[0];
+        if (wantedThumbprint is not null &&
+            !string.Equals(NormalizeThumbprint(selected.Thumbprint), wantedThumbprint, StringComparison.Ordinal))
+        {
+            diagnostics.Add(
+                $"configured thumbprint {wantedThumbprint} is not installed; using the newest usable certificate instead");
+        }
+
+        diagnostics.Add(
+            $"matched {matches.Count} certificate(s); selected \"{selected.Subject}\" [{selected.Thumbprint}]");
+
+        return new CertificateSelectionResult
+        {
+            Selected = selected,
+            MatchCount = matches.Count,
+            Diagnostics = diagnostics,
+        };
+    }
+
+    public static bool IsUsableClientIdentity(
+        X509Certificate2 candidate,
+        DateTimeOffset now,
+        bool requireClientAuthenticationUsage,
+        out string reason)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+
+        if (!candidate.HasPrivateKey)
+        {
+            reason = "no private key";
+            return false;
+        }
+
+        if (candidate.NotBefore.ToUniversalTime() > now.UtcDateTime ||
+            candidate.NotAfter.ToUniversalTime() <= now.UtcDateTime)
+        {
+            reason = "certificate is outside its validity period";
+            return false;
+        }
+
+        if (IsCertificateAuthority(candidate))
+        {
+            reason = "a CA certificate cannot be used as a client identity";
+            return false;
+        }
+
+        if (requireClientAuthenticationUsage && !HasClientAuthenticationUsage(candidate))
+        {
+            reason = $"missing clientAuth EKU ({ClientAuthenticationOid})";
+            return false;
+        }
+
+        if (!HasUsablePrivateKey(candidate))
+        {
+            reason = "private key handle is not accessible";
+            return false;
+        }
+
+        reason = string.Empty;
+        return true;
+    }
+
     public static bool IssuerMatches(X509Certificate2 candidate, X509Certificate2 authority) =>
         candidate.IssuerName.RawData.AsSpan().SequenceEqual(authority.SubjectName.RawData);
 
@@ -147,6 +275,26 @@ public static class CertificateSelector
         if (extension is null)
         {
             return true;
+        }
+
+        foreach (var oid in extension.EnhancedKeyUsages)
+        {
+            if (string.Equals(oid.Value, ClientAuthenticationOid, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static bool HasExplicitClientAuthenticationUsage(X509Certificate2 certificate)
+    {
+        var extension = certificate.Extensions
+            .OfType<X509EnhancedKeyUsageExtension>()
+            .FirstOrDefault();
+        if (extension is null)
+        {
+            return false;
         }
 
         foreach (var oid in extension.EnhancedKeyUsages)

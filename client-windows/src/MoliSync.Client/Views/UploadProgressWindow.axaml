@@ -1,0 +1,22 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MoliSync.Client.Views.UploadProgressWindow"
+        Width="520" Height="240"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource PaperBrush}">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="22">
+    <StackPanel>
+      <TextBlock x:Name="TitleText" Classes="h2" />
+      <TextBlock x:Name="FileText" Classes="caption" Margin="0,4,0,0" />
+    </StackPanel>
+    <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="8">
+      <ProgressBar x:Name="Progress" Minimum="0" Maximum="100" Height="6" />
+      <TextBlock x:Name="StatusText" Classes="caption" />
+    </StackPanel>
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button x:Name="CancelButton" Click="Cancel_OnClick">取消</Button>
+    </StackPanel>
+  </Grid>
+</Window>

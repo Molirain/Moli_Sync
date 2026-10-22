@@ -1,0 +1,118 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:svc="using:MoliSync.Client.Services"
+             x:Class="MoliSync.Client.Views.SettingsPage"
+             x:DataType="svc:ShellViewModel">
+  <Grid RowDefinitions="Auto,*">
+    <Border Grid.Row="0" Background="{StaticResource HeaderBrush}"
+            BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1"
+            Padding="28,22,28,16">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel>
+          <TextBlock Text="设置" Classes="h1" />
+          <TextBlock Text="连接、同步策略、数据目录与启动行为" Classes="muted" Margin="0,5,0,0" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Click="Reconfigure_OnClick">重新配置连接</Button>
+          <Button Classes="primary" Click="Save_OnClick">保存设置</Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <ScrollViewer Grid.Row="1">
+      <StackPanel Margin="28,16,28,28" Spacing="12" MaxWidth="860" HorizontalAlignment="Stretch">
+        <Border Classes="panel">
+          <StackPanel Spacing="10">
+            <TextBlock Text="连接与设备" Classes="h2" />
+            <TextBlock Text="mTLS 身份来自 Windows 证书库" Classes="caption" />
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+              <TextBlock Text="服务器" Classes="muted" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" Text="{Binding ServerDisplay}" IsReadOnly="True" />
+              <TextBlock Grid.Row="1" Text="设备名称" Classes="muted" VerticalAlignment="Center" />
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding DeviceName, Mode=TwoWay}" />
+              <TextBlock Grid.Row="2" Text="客户端证书" Classes="muted" VerticalAlignment="Center" />
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CertificateDisplay}" IsReadOnly="True" />
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="panel">
+          <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel>
+                <TextBlock Text="同步策略" Classes="h2" />
+                <TextBlock Text="文字始终上云；图片与文件按阈值选择" Classes="caption" />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding ThresholdText}" Classes="h2" VerticalAlignment="Center" />
+            </Grid>
+            <Slider Minimum="5" Maximum="50" TickFrequency="1" IsSnapToTickEnabled="True"
+                    Value="{Binding ThresholdMiB, Mode=TwoWay}" />
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <TextBlock Text="5 MiB" Classes="caption" />
+              <TextBlock Grid.Column="2" Text="50 MiB" Classes="caption" />
+            </Grid>
+            <Border Background="#F3EEE2" BorderBrush="#E6DECE" BorderThickness="1" CornerRadius="9" Padding="10">
+              <TextBlock Text="超过阈值的文件只允许 P2P；文字始终上传服务器。图片/文件每次发送仍会询问云端或 P2P。"
+                         Classes="caption" TextWrapping="Wrap" />
+            </Border>
+            <ToggleSwitch x:Name="AutoCopyToggle" Content="收到文字时自动复制到剪贴板" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="panel">
+          <StackPanel Spacing="8">
+            <TextBlock Text="数据目录" Classes="h2" />
+            <TextBlock Text="下载文件与断点续传缓存" Classes="caption" />
+            <TextBox Text="{Binding DataDirectory}" IsReadOnly="True" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Classes="small" Click="OpenFolder_OnClick">打开文件夹</Button>
+              <Button Classes="small" Click="ChangeFolder_OnClick">更改目录…</Button>
+            </StackPanel>
+            <Border Background="#EEF6F0" BorderBrush="#DCE7DF" BorderThickness="1" CornerRadius="9" Padding="10">
+              <TextBlock Text="卸载 MoliSync 不会删除此目录。卸载界面会再次提示；如需彻底清理请手动删除。"
+                         FontSize="10.5" Foreground="#5F7067" TextWrapping="Wrap" />
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="panel">
+          <StackPanel Spacing="2">
+            <TextBlock Text="启动行为" Classes="h2" Margin="0,0,0,4" />
+            <Grid ColumnDefinitions="*,Auto" Margin="0,5,0,5">
+              <StackPanel>
+                <TextBlock Text="开机自动启动" FontSize="12" FontWeight="SemiBold" />
+                <TextBlock Text="登录 Windows 后自动运行，可在应用内关闭" Classes="caption" />
+              </StackPanel>
+              <ToggleSwitch Grid.Column="1" x:Name="AutoStartToggle" VerticalAlignment="Center" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto" Margin="0,5,0,5">
+              <StackPanel>
+                <TextBlock Text="启动时最小化到托盘" FontSize="12" FontWeight="SemiBold" />
+                <TextBlock Text="开机自启时隐藏主窗口，只保留托盘与同步" Classes="caption" />
+              </StackPanel>
+              <ToggleSwitch Grid.Column="1" x:Name="StartMinimizedToggle" VerticalAlignment="Center" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto" Margin="0,5,0,5">
+              <StackPanel>
+                <TextBlock Text="关闭窗口时最小化到托盘" FontSize="12" FontWeight="SemiBold" />
+                <TextBlock Text="不退出进程，继续接收文字与下载" Classes="caption" />
+              </StackPanel>
+              <ToggleSwitch Grid.Column="1" x:Name="CloseToTrayToggle" VerticalAlignment="Center" />
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="panel">
+          <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+            <StackPanel>
+              <TextBlock Text="关于 MoliSync" Classes="h2" />
+              <TextBlock Text="{Binding Version, StringFormat='Windows 客户端 {0} · 协议 v1'}" Classes="caption" />
+            </StackPanel>
+            <Button Grid.Column="2" Classes="small" Click="OpenLogs_OnClick">查看日志</Button>
+            <Button Grid.Column="3" Classes="small" Click="Save_OnClick">保存</Button>
+          </Grid>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

@@ -1,0 +1,91 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:svc="using:MoliSync.Client.Services"
+        x:Class="MoliSync.Client.MainWindow"
+        x:DataType="svc:ShellViewModel"
+        Width="1120" Height="720"
+        MinWidth="980" MinHeight="620"
+        Title="MoliSync"
+        Icon="/Assets/app.ico"
+        Background="{StaticResource PaperBrush}">
+  <Grid>
+    <Grid x:Name="LoadingHost">
+      <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14">
+        <Image Source="avares://MoliSync.Client/Assets/app.ico" Width="54" Height="54" />
+        <TextBlock Text="正在连接 MoliSync…" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+        <ProgressBar IsIndeterminate="True" Width="220" Height="3" />
+        <TextBlock x:Name="LoadingStatus" Text="读取配置与证书" Classes="muted" HorizontalAlignment="Center" />
+      </StackPanel>
+    </Grid>
+
+    <ContentControl x:Name="SetupHost" IsVisible="False" />
+
+    <Grid x:Name="ShellHost" IsVisible="False" ColumnDefinitions="226,*">
+      <Border Grid.Column="0" Background="{StaticResource SidebarBrush}">
+        <Grid RowDefinitions="Auto,*,Auto" Margin="14,16,14,16">
+          <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="4,2,4,0">
+            <Image Source="avares://MoliSync.Client/Assets/app.ico" Width="36" Height="36" />
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="MoliSync" Foreground="#E7F2EC" FontSize="17" FontWeight="Bold" />
+              <TextBlock Text="跨端同步" Foreground="#9FC1B2" FontSize="10.5" />
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel Grid.Row="1" Spacing="5" Margin="0,20,0,0">
+            <Button x:Name="NavText" Classes="nav active" Tag="text" Click="Nav_OnClick">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <PathIcon Data="M3,5 H21 V7 H3 Z M3,11 H21 V13 H3 Z M3,17 H15 V19 H3 Z" Width="17" Height="17" Foreground="#CBE0D6" />
+                <TextBlock Grid.Column="1" Text="文字" Margin="10,0,0,0" VerticalAlignment="Center" />
+                <Border Grid.Column="2" Classes="badge" Background="#22FFFFFF" Padding="7,1">
+                  <TextBlock Text="{Binding TextRecords.Count}" FontSize="10.5" Foreground="#D8EBE2" />
+                </Border>
+              </Grid>
+            </Button>
+            <Button x:Name="NavImages" Classes="nav" Tag="images" Click="Nav_OnClick">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <PathIcon Data="M3,4 H21 V20 H3 Z M5,6 V18 H19 V6 Z M7,8 A2,2 0 1 0 7,12 A2,2 0 1 0 7,8 M9,16 L12,13 L14,15 L17,11 L19,14 V16 Z" Width="17" Height="17" Foreground="#CBE0D6" />
+                <TextBlock Grid.Column="1" Text="图片" Margin="10,0,0,0" VerticalAlignment="Center" />
+                <Border Grid.Column="2" Classes="badge" Background="#22FFFFFF" Padding="7,1">
+                  <TextBlock Text="{Binding ImageRecords.Count}" FontSize="10.5" Foreground="#D8EBE2" />
+                </Border>
+              </Grid>
+            </Button>
+            <Button x:Name="NavFiles" Classes="nav" Tag="files" Click="Nav_OnClick">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <PathIcon Data="M6,2 H14 L20,8 V22 H6 Z M13,3 V9 H19" Width="17" Height="17" Foreground="#CBE0D6" />
+                <TextBlock Grid.Column="1" Text="文件" Margin="10,0,0,0" VerticalAlignment="Center" />
+                <Border Grid.Column="2" Classes="badge" Background="#22FFFFFF" Padding="7,1">
+                  <TextBlock Text="{Binding FileRecords.Count}" FontSize="10.5" Foreground="#D8EBE2" />
+                </Border>
+              </Grid>
+            </Button>
+          </StackPanel>
+
+          <StackPanel Grid.Row="2" Spacing="10">
+            <Border Background="#14CFE9DC" BorderBrush="#22CFE9DC" BorderThickness="1" CornerRadius="13" Padding="12,10">
+              <StackPanel Spacing="4">
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                  <Ellipse Width="7" Height="7" Fill="{StaticResource MintStrongBrush}" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding OnlineText}" Foreground="#E7F2EC" FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+                <TextBlock Text="本机与已连接设备实时同步" Foreground="#9FC1B2" FontSize="10" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Button x:Name="NavSettings" Classes="nav" Tag="settings" Click="Nav_OnClick">
+              <Grid ColumnDefinitions="Auto,*">
+                <PathIcon Data="M3,5 H21 V7 H3 Z M15,3 H17 V9 H15 Z M3,11 H21 V13 H3 Z M7,9 H9 V15 H7 Z M3,17 H21 V19 H3 Z M13,15 H15 V21 H13 Z" Width="17" Height="17" Foreground="#CBE0D6" />
+                <TextBlock Grid.Column="1" Text="设置" Margin="10,0,0,0" VerticalAlignment="Center" />
+              </Grid>
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <ContentControl Grid.Column="1" x:Name="PageHost" />
+    </Grid>
+
+    <Border x:Name="ToastHost" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,24" Background="{StaticResource PineBrush}" CornerRadius="10" Padding="16,9">
+      <TextBlock x:Name="ToastText" Foreground="#F7F3E8" FontSize="12" />
+    </Border>
+  </Grid>
+</Window>

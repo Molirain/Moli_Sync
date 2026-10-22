@@ -85,6 +85,49 @@ public sealed class WindowsCertificateStore
         }
     }
 
+    public ClientIdentity SelectIdentity(CertificateSelectionCriteria criteria)
+    {
+        ArgumentNullException.ThrowIfNull(criteria);
+
+        var candidates = EnumerateCurrentUserPersonal();
+        var selected = (X509Certificate2?)null;
+        try
+        {
+            var result = CertificateSelector.SelectAuto(candidates, criteria);
+            foreach (var diagnostic in result.Diagnostics)
+            {
+                _log.Debug(diagnostic);
+            }
+
+            if (result.Selected is null)
+            {
+                throw new ClientCertificateNotFoundException(
+                    "Windows 个人证书库（CurrentUser\\MY）中没有可用的客户端证书。" +
+                    "请先导入带私钥且启用 clientAuth 的客户端证书，再重新连接。");
+            }
+
+            if (result.MatchCount > 1)
+            {
+                _log.Warn(
+                    $"{result.MatchCount} usable client certificates found; " +
+                    $"using \"{result.Selected.Subject}\" [{result.Selected.Thumbprint}].");
+            }
+
+            selected = result.Selected;
+            return new ClientIdentity(selected);
+        }
+        finally
+        {
+            foreach (var candidate in candidates)
+            {
+                if (!ReferenceEquals(candidate, selected))
+                {
+                    candidate.Dispose();
+                }
+            }
+        }
+    }
+
     private static void EnsureWindows()
     {
         if (!OperatingSystem.IsWindows())

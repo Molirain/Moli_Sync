@@ -13,7 +13,7 @@ MoliSync 是一个开源项目，用于在你自己掌控的设备之间传输�
 | 路径 | 组件 |
 | --- | --- |
 | [`server/`](server/) | Go 控制面服务：受信反代鉴权、设备在线表、WebSocket 在线状态与 HTTP API，并提供容器镜像。 |
-| [`client-windows/`](client-windows/) | C# / .NET 8 Windows 客户端：系统证书库读取、控制面 WebSocket、剪贴板/占位处理、Range 下载与连接竞速。 |
+| [`client-windows/`](client-windows/) | C# / .NET 8 + Avalonia Windows 桌面客户端：自动读取系统证书、三栏云同步、剪贴板/占位处理、Range 下载、数据目录迁移与开机自启。 |
 | [`client-android/`](client-android/) | Kotlin / Jetpack Compose Android 客户端：KeyChain mTLS、系统分享、流式发送与前台数据同步服务。 |
 | [`proto/sync.proto`](proto/sync.proto) | 带版本的控制面与数据面协议定义。 |
 | [`docker-compose.example.yml`](docker-compose.example.yml) | 服务端容器加固后的 Compose 模板。 |
@@ -71,11 +71,11 @@ Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服
 | Go 服务端配置、受信代理 mTLS 身份、设备表、WebSocket 在线状态与 API | 基础已实现 |
 | 云端持久化：SQLite 元数据、blob 目录、Range 下载、仅发送者可删除、Docker 卷 | 已实现 |
 | 同步记录、P2P 票据、中继与数据帧的协议定义 | 协议已定义；P2P 与中继处理器尚未完成 |
-| Windows 证书筛选、控制面客户端、剪贴板/占位、Range 下载与 LAN/VPN 竞速 | 客户端模块已实现；暂无上传界面 |
+| Windows Avalonia 桌面界面、自动读取系统证书、三栏云同步、Range 下载、数据目录迁移与开机自启 | 核心已实现；安装包构建待完善 |
 | Android KeyChain mTLS、三栏云界面、流式 HTTP 上传、Range 下载、系统分享、基于 PFD 的发送、BLAKE3 分帧与前台服务 | 已实现 |
 | 端到端 P2P 同步、票据交换、可互操作的对端监听、中继 | 尚未完成 |
 
-文字同步已经可以跨设备通过服务器完成，阈值内的图片/文件也能从任意已授权客户端存取。P2P 仍不可用：服务端还缺 P2P 信令、会话票据与中继管道，因此 Android 客户端会明确失败而不会静默降级。Windows 客户端可接收文字与文件占位，但尚不能上传。
+文字同步已经可以跨设备通过服务器完成，阈值内的图片/文件也能从任意已授权客户端存取。P2P 仍不可用：服务端还缺 P2P 信令、会话票据与中继管道，因此 Android 客户端会明确失败而不会静默降级。Windows 客户端已经具备与 Android 一致的上传、下载与三栏界面。
 
 ## Docker 快速开始
 
@@ -177,7 +177,7 @@ dotnet test MoliSync.Client.sln -c Release
 dotnet publish src/MoliSync.Client/MoliSync.Client.csproj -c Release -r win-x64 -o publish
 ```
 
-将 [`client.example.json`](client-windows/client.example.json) 复制为 `client.json`，配置 HTTPS 服务地址和 CA 证书路径。详见 [Windows 客户端说明](client-windows/README.md)。
+运行 `publish\MoliSync.Client.exe`，首次启动只需填写 HTTPS 服务地址；客户端证书会自动从 Windows 个人证书库读取。若服务端使用私有 CA，请把该 CA 一次性导入 Windows“受信任的根证书颁发机构”。详见 [Windows 客户端说明](client-windows/README.md)。
 
 ### Android 客户端
 

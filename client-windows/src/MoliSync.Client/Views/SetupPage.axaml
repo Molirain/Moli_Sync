@@ -1,0 +1,81 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MoliSync.Client.Views.SetupPage"
+            >
+  <Grid>
+    <Border Background="{StaticResource PineBrush}" CornerRadius="0,0,26,26" Padding="34,28,34,26">
+      <Grid ColumnDefinitions="Auto,*">
+        <Image Source="avares://MoliSync.Client/Assets/app.ico" Width="52" Height="52" />
+        <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+          <TextBlock Text="连接到 MoliSync" Foreground="#F7F3E8" FontSize="25" FontWeight="Bold" />
+          <TextBlock Text="只需填写服务器地址，客户端证书由 Windows 自动读取"
+                     Foreground="#BFD6CB" FontSize="12" Margin="0,4,0,0" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <ScrollViewer Margin="0,112,0,0">
+      <StackPanel Width="660" HorizontalAlignment="Center" Margin="24,0,24,30" Spacing="12">
+        <Border Classes="panel">
+          <StackPanel Spacing="12">
+            <TextBlock Text="服务器地址" Classes="muted" />
+            <TextBox x:Name="ServerBox" PlaceholderText="https://sync.example.com" />
+            <TextBlock Text="必须使用 https。MoliSync 会通过 Windows 信任的根证书验证服务器。"
+                       Classes="caption" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="panel">
+          <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="3">
+                <TextBlock Text="客户端证书" Classes="muted" />
+                <TextBlock x:Name="CertificateText" Text="正在读取 Windows 证书库…"
+                           FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock x:Name="CertificateDetailText" Classes="caption" TextWrapping="Wrap" />
+              </StackPanel>
+              <Button Grid.Column="1" Classes="small" Margin="12,0,0,0"
+                      VerticalAlignment="Center" Click="RefreshCertificates_OnClick">重新检测</Button>
+            </Grid>
+            <Border Background="#EEF6F0" BorderBrush="#DCE7DF" BorderThickness="1" CornerRadius="9" Padding="10">
+              <TextBlock Text="自动读取当前用户个人证书库（CurrentUser\MY）中带私钥和 clientAuth 用途的证书。私钥始终留在 Windows CNG 中，不会导出到磁盘。"
+                         FontSize="10.5" Foreground="#5F7067" TextWrapping="Wrap" />
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="panel">
+          <StackPanel Spacing="8">
+            <TextBlock Text="数据目录" Classes="h2" />
+            <TextBlock Text="用于保存下载的图片、文件与断点续传缓存。安装器会预先选择，也可以在这里更改。"
+                       Classes="caption" TextWrapping="Wrap" />
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBox x:Name="DataBox" IsReadOnly="True" />
+              <Button Grid.Column="1" Classes="small" Margin="8,0,0,0" Click="BrowseData_OnClick">浏览…</Button>
+            </Grid>
+            <TextBlock Text="卸载 MoliSync 不会删除此目录。" Classes="caption" Foreground="#5F7067" />
+          </StackPanel>
+        </Border>
+
+        <Expander Header="高级选项">
+          <Border Classes="panel" Margin="0,8,0,0">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <TextBlock Text="设备名称" Classes="muted" VerticalAlignment="Center" />
+              <TextBox Grid.Column="1" x:Name="DeviceBox" />
+            </Grid>
+          </Border>
+        </Expander>
+
+        <TextBlock x:Name="ErrorText" Foreground="#9E4A38" FontSize="12" TextWrapping="Wrap" IsVisible="False" />
+        <TextBlock x:Name="StatusText" Classes="caption" IsVisible="False" />
+
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button x:Name="CancelButton" Click="Cancel_OnClick" IsVisible="False">取消</Button>
+          <Button x:Name="ConnectButton" Classes="primary" Click="Connect_OnClick" MinWidth="160">保存并连接</Button>
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>
+
+

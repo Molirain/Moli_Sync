@@ -21,6 +21,7 @@ public sealed class ClientIdentity : IDisposable
         Certificate = certificate;
         DeviceId = certificate.GetCertHashString(HashAlgorithmName.SHA256).ToLowerInvariant();
         CommonName = certificate.GetNameInfo(X509NameType.SimpleName, forIssuer: false);
+        Issuer = certificate.GetNameInfo(X509NameType.SimpleName, forIssuer: true);
     }
 
     public X509Certificate2 Certificate { get; }
@@ -29,6 +30,8 @@ public sealed class ClientIdentity : IDisposable
     public string DeviceId { get; }
 
     public string CommonName { get; }
+
+    public string Issuer { get; }
 
     public void Dispose() => Certificate.Dispose();
 }

@@ -45,6 +45,10 @@ public sealed class SyncDispatcher
 
     public event Action<PresenceUpdate>? PresenceChanged;
 
+    public event Action<WelcomeState>? WelcomeReceived;
+
+    public event Action? RecordReceived;
+
     public WelcomeState? Welcome => Volatile.Read(ref _welcome);
 
     public void Handle(ServerEnvelope? envelope)
@@ -97,6 +101,15 @@ public sealed class SyncDispatcher
         _log.Info(
             $"control plane registered device {welcome.DeviceId} " +
             $"(heartbeat {heartbeat.TotalSeconds:F0}s, {devices.Count} peer(s) online)");
+
+        try
+        {
+            WelcomeReceived?.Invoke(welcome);
+        }
+        catch (Exception exception)
+        {
+            _log.Warn("welcome subscriber failed", exception);
+        }
     }
 
     private void HandlePresence(ServerEnvelope envelope)
@@ -145,6 +158,15 @@ public sealed class SyncDispatcher
             default:
                 _log.Warn($"unsupported payload type \"{record.Type}\" in record {record.RecordId}");
                 break;
+        }
+
+        try
+        {
+            RecordReceived?.Invoke();
+        }
+        catch (Exception exception)
+        {
+            _log.Warn("record subscriber failed", exception);
         }
     }
 

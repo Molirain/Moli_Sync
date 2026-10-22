@@ -1,0 +1,19 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MoliSync.Client.Views.ConfirmWindow"
+        Width="470" Height="230"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource PaperBrush}">
+  <Grid RowDefinitions="*,Auto" Margin="22">
+    <StackPanel Spacing="8">
+      <TextBlock x:Name="HeaderText" Classes="h2" />
+      <TextBlock x:Name="BodyText" TextWrapping="Wrap" Foreground="#52625A" FontSize="12.5" />
+    </StackPanel>
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+      <Button Click="Cancel_OnClick">取消</Button>
+      <Button Classes="primary" x:Name="ConfirmButton" Click="Confirm_OnClick" />
+    </StackPanel>
+  </Grid>
+</Window>

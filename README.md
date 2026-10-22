@@ -13,7 +13,7 @@ MoliSync is an open-source project for moving files and synchronized data betwee
 | Path | Component |
 | --- | --- |
 | [`server/`](server/) | Go control-plane service: trusted reverse-proxy authentication, device registry, WebSocket presence and HTTP API. Ships as a container image. |
-| [`client-windows/`](client-windows/) | C# / .NET 8 Windows client: Windows certificate-store access, control-plane WebSocket, clipboard/placeholder handling, Range download and connection racing. |
+| [`client-windows/`](client-windows/) | C# / .NET 8 + Avalonia Windows desktop client: automatic certificate-store access, three-tab cloud sync, clipboard/placeholder handling, Range download, data-directory migration and autostart. |
 | [`client-android/`](client-android/) | Kotlin / Jetpack Compose Android client: KeyChain mTLS, system share intents, streaming sender and foreground data-sync service. |
 | [`proto/sync.proto`](proto/sync.proto) | Versioned control-plane and data-plane protocol definition. |
 | [`docker-compose.example.yml`](docker-compose.example.yml) | Hardened Compose template for the server container. |
@@ -71,11 +71,11 @@ The Android client implements this model in three tabs (text, images, files). Th
 | Go server configuration, trusted-proxy mTLS identity, device registry, WebSocket presence and API | Implemented foundation |
 | Durable text/image/file records: SQLite metadata, blob directory, Range download, owner-only delete, Docker volume | Implemented |
 | Protocol definition for sync records, P2P tickets, relay and data frames | Defined; P2P and relay handlers are incomplete |
-| Windows certificate selection, control-plane client, clipboard/placeholder handling, Range download and LAN/VPN race connector | Client modules implemented; no upload UI yet |
+| Windows Avalonia desktop UI, automatic Windows-store certificate selection, three-tab cloud sync, Range download, data-directory migration and autostart | Core implemented; installer packaging still in progress |
 | Android KeyChain mTLS, three-tab cloud UI, streaming HTTP upload, Range download, share intents, PFD-based sender, BLAKE3 framing and foreground service | Implemented |
 | End-to-end P2P sync, ticket exchange, interoperable peer listener, relay | Not yet complete |
 
-Text sync across devices works today through the server, and images/files up to the configured limit can be stored and downloaded from any authorized client. P2P remains unavailable: the Android client fails explicitly instead of silently downgrading, because the server still needs P2P signaling, session tickets and a relay pipe. The Windows client receives text and file placeholders but cannot upload yet.
+Text sync across devices works today through the server, and images/files up to the configured limit can be stored and downloaded from any authorized client. P2P remains unavailable: the Android client fails explicitly instead of silently downgrading, because the server still needs P2P signaling, session tickets and a relay pipe. The Windows client now has the same upload, download and three-tab UI as Android.
 
 ## Quick start with Docker
 
@@ -177,7 +177,7 @@ dotnet test MoliSync.Client.sln -c Release
 dotnet publish src/MoliSync.Client/MoliSync.Client.csproj -c Release -r win-x64 -o publish
 ```
 
-Copy [`client.example.json`](client-windows/client.example.json) to `client.json`, then configure the HTTPS server URL and CA certificate path. See the [Windows client guide](client-windows/README.md).
+Run `publish\MoliSync.Client.exe` and enter the HTTPS server URL; the client certificate is read automatically from the Windows personal certificate store. If the server uses a private CA, import that CA once into Windows “Trusted Root Certification Authorities”. See the [Windows client guide](client-windows/README.md).
 
 ### Android client
 

@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:svc="using:MoliSync.Client.Services"
+             x:Class="MoliSync.Client.Views.FilesPage"
+             x:DataType="svc:ShellViewModel">
+  <Grid RowDefinitions="Auto,*">
+    <Border Grid.Row="0" Background="{StaticResource HeaderBrush}"
+            BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1"
+            Padding="28,22,28,16">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel>
+          <TextBlock Text="文件" Classes="h1" />
+          <TextBlock Text="不超过阈值的文件可保存到服务器，超过阈值仅走 P2P" Classes="muted" Margin="0,5,0,0" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Click="OpenFolder_OnClick">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <PathIcon Data="M3,6 A2,2 0 0 1 5,4 H9 L11,6 H19 A2,2 0 0 1 21,8 V18 A2,2 0 0 1 19,20 H5 A2,2 0 0 1 3,18 Z" Width="14" Height="14" />
+              <TextBlock Text="打开数据目录" />
+            </StackPanel>
+          </Button>
+          <Button Classes="primary" Click="Upload_OnClick">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <PathIcon Data="M11,5 H13 V11 H19 V13 H13 V19 H11 V13 H5 V11 H11 Z" Width="14" Height="14" Foreground="#F6F2E6" />
+              <TextBlock Text="上传文件" Foreground="#F6F2E6" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <ScrollViewer Grid.Row="1">
+      <StackPanel Margin="28,16,28,24" Spacing="9">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Text="{Binding StatusText}" Classes="caption" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="{Binding ThresholdText}" Classes="caption" />
+        </Grid>
+        <Grid ColumnDefinitions="38,*,90,130,86" Margin="12,0,12,0">
+          <TextBlock Grid.Column="1" Text="名称" Classes="caption" />
+          <TextBlock Grid.Column="2" Text="大小" Classes="caption" />
+          <TextBlock Grid.Column="3" Text="来源" Classes="caption" />
+          <TextBlock Grid.Column="4" Text="操作" Classes="caption" HorizontalAlignment="Right" />
+        </Grid>
+
+        <ItemsControl ItemsSource="{Binding FileRecords}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="svc:RecordItem">
+              <Border Classes="card" Margin="0,0,0,7">
+                <Grid ColumnDefinitions="38,*,90,130,86" VerticalAlignment="Center">
+                  <Border Width="36" Height="36" CornerRadius="10" Background="{StaticResource SoftGreenBrush}">
+                    <TextBlock Text="{Binding KindLabel}" FontSize="9" FontWeight="Bold"
+                               Foreground="#2C6A50" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Spacing="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding FileName}" FontSize="12.5" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Record.MimeType}" Classes="caption"
+                               TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontSize="11.5"
+                             VerticalAlignment="Center" Foreground="#5E6C65" />
+                  <StackPanel Grid.Column="3" Spacing="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding SenderName}" FontSize="10.5" Foreground="#5D6B63"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding TimeText}" Classes="caption" />
+                  </StackPanel>
+                  <Grid Grid.Column="4" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Classes="small" Content="{Binding DownloadLabel}" Click="Download_OnClick"
+                            IsVisible="{Binding !IsDownloading}" />
+                    <TextBlock Text="{Binding DownloadPercent, StringFormat='{}{0:F0}%'}" Classes="caption"
+                               HorizontalAlignment="Right" IsVisible="{Binding IsDownloading}" />
+                  </Grid>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>
+

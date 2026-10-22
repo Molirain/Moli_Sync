@@ -4,17 +4,18 @@ using System.Security.Cryptography.X509Certificates;
 namespace MoliSync.Client.Security;
 
 /// <summary>
-/// Validates the server certificate against the same pinned CA root used for
-/// client identity. Hostname verification performed by SslStream is honoured;
-/// the chain is rebuilt with an explicit custom trust store so the Windows
-/// machine's unrelated root store cannot widen trust.
+/// Validates the server certificate. When a CA was explicitly pinned, the chain
+/// is rebuilt against only that root. Otherwise the normal Windows trust store
+/// is used (the same roots the browser and Bitwarden-style clients trust), so
+/// no CA file is required for a publicly trusted or centrally managed server.
+/// Hostname verification performed by SslStream is always honoured.
 /// </summary>
 public sealed class PinnedServerCertificateValidator
 {
-    private readonly PinnedCertificateAuthority _authority;
+    private readonly PinnedCertificateAuthority? _authority;
     private readonly Logging.IClientLog _log;
 
-    public PinnedServerCertificateValidator(PinnedCertificateAuthority authority, Logging.IClientLog log)
+    public PinnedServerCertificateValidator(PinnedCertificateAuthority? authority, Logging.IClientLog log)
     {
         _authority = authority;
         _log = log;
@@ -38,6 +39,17 @@ public sealed class PinnedServerCertificateValidator
         if ((sslPolicyErrors & SslPolicyErrors.RemoteCertificateNameMismatch) != 0)
         {
             _log.Warn("server certificate does not match the configured host name");
+            return false;
+        }
+
+        if (_authority is null)
+        {
+            if (sslPolicyErrors == SslPolicyErrors.None)
+            {
+                return true;
+            }
+
+            _log.Warn($"server certificate rejected by the Windows trust store: {sslPolicyErrors}");
             return false;
         }
 

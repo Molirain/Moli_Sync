@@ -1,0 +1,239 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <Color x:Key="SystemAccentColor">#173D36</Color>
+    <Color x:Key="SystemAccentColorLight1">#2A5A50</Color>
+    <Color x:Key="SystemAccentColorLight2">#3E7D68</Color>
+    <Color x:Key="SystemAccentColorLight3">#5AA985</Color>
+    <Color x:Key="SystemAccentColorDark1">#12332D</Color>
+    <Color x:Key="SystemAccentColorDark2">#0E2924</Color>
+    <Color x:Key="SystemAccentColorDark3">#0A1F1B</Color>
+
+    <SolidColorBrush x:Key="PineBrush" Color="#173D36" />
+    <SolidColorBrush x:Key="PineDeepBrush" Color="#12332D" />
+    <SolidColorBrush x:Key="MintBrush" Color="#CFE9DC" />
+    <SolidColorBrush x:Key="MintStrongBrush" Color="#8FD3B6" />
+    <SolidColorBrush x:Key="PaperBrush" Color="#F2EDE2" />
+    <SolidColorBrush x:Key="CardBrush" Color="#FFFCF6" />
+    <SolidColorBrush x:Key="InkBrush" Color="#18211D" />
+    <SolidColorBrush x:Key="MutedBrush" Color="#6C7A72" />
+    <SolidColorBrush x:Key="LineBrush" Color="#E6DFD1" />
+    <SolidColorBrush x:Key="AmberBrush" Color="#D99A3E" />
+    <SolidColorBrush x:Key="ClayBrush" Color="#B4644C" />
+    <SolidColorBrush x:Key="SoftGreenBrush" Color="#E6F2EB" />
+    <SolidColorBrush x:Key="SoftAmberBrush" Color="#F8EDD9" />
+
+    <LinearGradientBrush x:Key="SidebarBrush" StartPoint="0%,0%" EndPoint="100%,100%">
+      <GradientStop Color="#1B463E" Offset="0" />
+      <GradientStop Color="#143A33" Offset="0.6" />
+      <GradientStop Color="#10322C" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="HeaderBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+      <GradientStop Color="#F7F2E7" Offset="0" />
+      <GradientStop Color="#F2EDE2" Offset="1" />
+    </LinearGradientBrush>
+  </Styles.Resources>
+
+  <Style Selector="Window">
+    <Setter Property="FontFamily" Value="Microsoft YaHei UI, Segoe UI" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+    <Setter Property="Background" Value="{StaticResource PaperBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.h1">
+    <Setter Property="FontSize" Value="25" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.h2">
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="TextBlock.muted">
+    <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+
+  <Style Selector="TextBlock.caption">
+    <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    <Setter Property="FontSize" Value="10.5" />
+  </Style>
+
+  <Style Selector="TextBlock.mono">
+    <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, monospace" />
+    <Setter Property="FontSize" Value="11.5" />
+  </Style>
+
+  <Style Selector="Button">
+    <Setter Property="MinHeight" Value="34" />
+    <Setter Property="Padding" Value="14,0" />
+    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="Background" Value="#FBF7EE" />
+    <Setter Property="BorderBrush" Value="#DCD4C4" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="#35443D" />
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Button:pointerover">
+    <Setter Property="Background" Value="#F4EFE3" />
+  </Style>
+
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{StaticResource PineBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource PineBrush}" />
+    <Setter Property="Foreground" Value="#F6F2E6" />
+  </Style>
+
+  <Style Selector="Button.primary:pointerover">
+    <Setter Property="Background" Value="#1F5049" />
+    <Setter Property="BorderBrush" Value="#1F5049" />
+  </Style>
+
+  <Style Selector="Button.ghost">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="#52625A" />
+  </Style>
+
+  <Style Selector="Button.ghost:pointerover">
+    <Setter Property="Background" Value="#EAE4D7" />
+  </Style>
+
+  <Style Selector="Button.small">
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="CornerRadius" Value="7" />
+  </Style>
+
+  <Style Selector="Button.danger">
+    <Setter Property="Background" Value="#9E4A38" />
+    <Setter Property="BorderBrush" Value="#9E4A38" />
+    <Setter Property="Foreground" Value="#FFF7F2" />
+  </Style>
+
+  <Style Selector="Button.icon">
+    <Setter Property="Width" Value="30" />
+    <Setter Property="Height" Value="30" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Background" Value="#FAF6EC" />
+    <Setter Property="BorderBrush" Value="#DFD7C7" />
+  </Style>
+
+  <Style Selector="Button.nav">
+    <Setter Property="Height" Value="40" />
+    <Setter Property="MinHeight" Value="40" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="CornerRadius" Value="11" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="#CBE0D6" />
+    <Setter Property="FontWeight" Value="Normal" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+  </Style>
+
+  <Style Selector="Button.nav:pointerover">
+    <Setter Property="Background" Value="#245248" />
+  </Style>
+
+  <Style Selector="Button.nav.active">
+    <Setter Property="Background" Value="#F4F0E4" />
+    <Setter Property="Foreground" Value="{StaticResource PineBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="Button.nav.active:pointerover">
+    <Setter Property="Background" Value="#F4F0E4" />
+  </Style>
+
+  <Style Selector="Button.title">
+    <Setter Property="Width" Value="34" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Foreground" Value="#C7DED3" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+
+  <Style Selector="Button.title:pointerover">
+    <Setter Property="Background" Value="#2A5A50" />
+  </Style>
+
+  <Style Selector="Button.title.close:pointerover">
+    <Setter Property="Background" Value="#9E4A38" />
+    <Setter Property="Foreground" Value="#FFF7F2" />
+  </Style>
+
+  <Style Selector="TextBox">
+    <Setter Property="MinHeight" Value="34" />
+    <Setter Property="Padding" Value="10,6" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Background" Value="#FFFCF6" />
+    <Setter Property="BorderBrush" Value="#DCD4C4" />
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+    <Setter Property="FontSize" Value="12.5" />
+  </Style>
+
+  <Style Selector="ComboBox">
+    <Setter Property="MinHeight" Value="34" />
+    <Setter Property="Padding" Value="10,4" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Background" Value="#FFFCF6" />
+    <Setter Property="BorderBrush" Value="#DCD4C4" />
+    <Setter Property="FontSize" Value="12.5" />
+  </Style>
+
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{StaticResource CardBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="13,12" />
+  </Style>
+
+  <Style Selector="Border.panel">
+    <Setter Property="Background" Value="{StaticResource CardBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="15,14" />
+  </Style>
+
+  <Style Selector="Border.badge">
+    <Setter Property="Background" Value="{StaticResource SoftGreenBrush}" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Padding" Value="7,3" />
+  </Style>
+
+  <Style Selector="Border.badge.amber">
+    <Setter Property="Background" Value="{StaticResource SoftAmberBrush}" />
+  </Style>
+
+  <Style Selector="ProgressBar">
+    <Setter Property="Height" Value="4" />
+    <Setter Property="MinHeight" Value="4" />
+    <Setter Property="Foreground" Value="{StaticResource MintStrongBrush}" />
+    <Setter Property="Background" Value="#EAE4D7" />
+    <Setter Property="CornerRadius" Value="2" />
+  </Style>
+
+  <Style Selector="ToggleSwitch">
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+</Styles>

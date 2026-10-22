@@ -1,0 +1,29 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MoliSync.Client.Views.TextComposeWindow"
+        Width="580" Height="430"
+        CanResize="True"
+        MinWidth="480" MinHeight="340"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource PaperBrush}">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="22">
+    <StackPanel>
+      <TextBlock Text="发送文字" Classes="h1" />
+      <TextBlock Text="文字会保存在服务器，所有已授权设备都能看到" Classes="muted" Margin="0,4,0,0" />
+    </StackPanel>
+    <TextBox Grid.Row="1" x:Name="Editor" Margin="0,14,0,10"
+             AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
+             PlaceholderText="输入要同步的文字…" />
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+      <TextBlock x:Name="CountText" Text="0 / 65536" Classes="caption" VerticalAlignment="Center" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+        <Button Click="Cancel_OnClick">取消</Button>
+        <Button Classes="primary" Click="Send_OnClick">发送</Button>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>
+
+
+
