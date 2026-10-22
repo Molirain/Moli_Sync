@@ -34,7 +34,7 @@ android {
             .get()
             .toInt()
         versionName = providers.environmentVariable("ANDROID_VERSION_NAME")
-            .orElse("0.2.0")
+            .orElse("0.3.0")
             .get()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -106,6 +106,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")

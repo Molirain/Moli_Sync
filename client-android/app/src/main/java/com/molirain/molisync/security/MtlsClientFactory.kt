@@ -24,6 +24,24 @@ object MtlsClientFactory {
      * Blocking; call on Dispatchers.IO.
      */
     fun create(context: Context, keyChain: KeyChainAdapter, alias: String): MtlsClient {
+        return create(context, keyChain, alias, readTimeoutMillis = 0L, pingIntervalSeconds = 20L)
+    }
+
+    /**
+     * HTTP API client for the record endpoints: finite read/write timeouts and
+     * no WebSocket ping.
+     */
+    fun createHttp(context: Context, keyChain: KeyChainAdapter, alias: String): MtlsClient {
+        return create(context, keyChain, alias, readTimeoutMillis = 60_000L, pingIntervalSeconds = null)
+    }
+
+    private fun create(
+        context: Context,
+        keyChain: KeyChainAdapter,
+        alias: String,
+        readTimeoutMillis: Long,
+        pingIntervalSeconds: Long?,
+    ): MtlsClient {
         val trustManager = ServerTrust.create(context)
         val (sslContext, identity) = keyChain.createSslContext(alias, trustManager)
 
@@ -31,20 +49,20 @@ object MtlsClientFactory {
             .tlsVersions(TlsVersion.TLS_1_3, TlsVersion.TLS_1_2)
             .build()
 
-        val client = OkHttpClient.Builder()
+        val builder = OkHttpClient.Builder()
             .sslSocketFactory(sslContext.socketFactory, trustManager)
             .connectionSpecs(listOf(tlsSpec))
             // A redirect must never receive the client certificate or request body.
             .followRedirects(false)
             .followSslRedirects(false)
             .connectTimeout(20, TimeUnit.SECONDS)
-            // WebSocket sessions are long lived; liveness is enforced by
-            // application heartbeats and OkHttp ping frames.
-            .readTimeout(0, TimeUnit.MILLISECONDS)
-            .pingInterval(20, TimeUnit.SECONDS)
-            .build()
+            .readTimeout(readTimeoutMillis, TimeUnit.MILLISECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+        if (pingIntervalSeconds != null) {
+            builder.pingInterval(pingIntervalSeconds, TimeUnit.SECONDS)
+        }
 
-        return MtlsClient(client, identity)
+        return MtlsClient(builder.build(), identity)
     }
 
     fun webSocketUrl(serverUrl: String): HttpUrl {

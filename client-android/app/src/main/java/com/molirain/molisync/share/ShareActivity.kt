@@ -9,6 +9,8 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,6 +37,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -49,6 +52,8 @@ import com.molirain.molisync.MainActivity
 import com.molirain.molisync.MoliSyncApp
 import com.molirain.molisync.data.ConnectionState
 import com.molirain.molisync.data.DeviceTarget
+import com.molirain.molisync.data.cloud.CloudKind
+import com.molirain.molisync.data.cloud.FileDigest
 import com.molirain.molisync.security.isCertificateFingerprint
 import com.molirain.molisync.transfer.TransferEndpoint
 import com.molirain.molisync.transfer.TransferFile
@@ -56,6 +61,7 @@ import com.molirain.molisync.transfer.TransferNotifications
 import com.molirain.molisync.transfer.TransferRequest
 import com.molirain.molisync.transfer.TransferService
 import com.molirain.molisync.ui.theme.MoliSyncTheme
+import com.molirain.molisync.ui.theme.MoliColors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -78,6 +84,8 @@ class ShareActivity : ComponentActivity() {
     }
 }
 
+private enum class ShareMode { CLOUD, P2P }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ShareScreen(app: MoliSyncApp, payload: SharePayload, activity: Activity) {
@@ -90,6 +98,14 @@ private fun ShareScreen(app: MoliSyncApp, payload: SharePayload, activity: Activ
     var selectedDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
     var starting by remember { mutableStateOf(false) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var cloudProgress by remember { mutableFloatStateOf(0f) }
+
+    val thresholdBytes = app.settings.cloudThresholdBytes
+    val cloudEligible = payload.files.isNotEmpty() &&
+        payload.files.all { it.sizeBytes in 1..thresholdBytes }
+    var mode by rememberSaveable {
+        mutableStateOf(if (cloudEligible) ShareMode.CLOUD.name else ShareMode.P2P.name)
+    }
 
     val availableDevices = remember(devices) {
         devices.values
@@ -116,7 +132,13 @@ private fun ShareScreen(app: MoliSyncApp, payload: SharePayload, activity: Activ
         !hasUnknownSize &&
         !starting &&
         app.settings.isConfigured &&
-        availableDevices.any { it.deviceId == selectedDeviceId }
+        (
+            if (mode == ShareMode.CLOUD.name) {
+                cloudEligible
+            } else {
+                availableDevices.any { it.deviceId == selectedDeviceId }
+            }
+            )
 
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
@@ -140,21 +162,67 @@ private fun ShareScreen(app: MoliSyncApp, payload: SharePayload, activity: Activ
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             if (payload.files.isEmpty()) {
-                Text("没有可传输的文件", style = MaterialTheme.typography.titleMedium)
-                payload.text?.let { text ->
+                Text("分享内容", style = MaterialTheme.typography.titleMedium)
+                payload.text?.takeIf { it.isNotBlank() }?.let { text ->
+                    Card {
+                        Text(
+                            text = safeLabel(text.take(2000)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(14.dp),
+                        )
+                    }
+                }
+                if (payload.text.isNullOrBlank()) {
                     Text(
-                        text = text.take(500),
-                        style = MaterialTheme.typography.bodyMedium,
+                        "没有可分享的文字或文件。",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-                Text(
-                    "当前版本通过系统分享接收文件与图片。纯文本同步请使用云同步入口。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Button(onClick = { activity.finish() }, modifier = Modifier.fillMaxWidth()) {
-                    Text("关闭")
+                    Button(onClick = { activity.finish() }, modifier = Modifier.fillMaxWidth()) {
+                        Text("关闭")
+                    }
+                } else {
+                    Text(
+                        "文字始终保存到服务器，并实时同步给所有在线设备。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Button(
+                        onClick = {
+                            val text = payload.text ?: return@Button
+                            error = null
+                            starting = true
+                            scope.launch {
+                                runCatching { app.cloudRepository.postText(text) }
+                                    .onSuccess {
+                                        Toast.makeText(activity, "文字已保存到服务器", Toast.LENGTH_SHORT).show()
+                                        activity.finish()
+                                    }
+                                    .onFailure { failure ->
+                                        error = failure.message ?: "保存失败"
+                                        starting = false
+                                    }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = app.settings.isConfigured && !starting,
+                    ) {
+                        Text("保存文字到服务器")
+                    }
+                    if (!app.settings.isConfigured) {
+                        OutlinedButton(
+                            onClick = { context.startActivity(Intent(context, MainActivity::class.java)) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("完成服务器与证书设置")
+                        }
+                    }
+                    if (starting) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                    error?.let { message ->
+                        Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
                 return@Column
             }
@@ -197,7 +265,36 @@ private fun ShareScreen(app: MoliSyncApp, payload: SharePayload, activity: Activ
 
             HorizontalDivider()
 
-            Text("选择接收设备", style = MaterialTheme.typography.titleMedium)
+            Text("发送方式", style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                ModeCard(
+                    title = "保存到服务器",
+                    body = "永久保留 · 所有设备可见",
+                    selected = mode == ShareMode.CLOUD.name,
+                    enabled = cloudEligible,
+                    modifier = Modifier.weight(1f),
+                    onClick = { mode = ShareMode.CLOUD.name },
+                )
+                ModeCard(
+                    title = "P2P 直连",
+                    body = "不经过服务器存储",
+                    selected = mode == ShareMode.P2P.name,
+                    enabled = true,
+                    modifier = Modifier.weight(1f),
+                    onClick = { mode = ShareMode.P2P.name },
+                )
+            }
+            if (!cloudEligible) {
+                Text(
+                    "存在超过阈值（${TransferNotifications.formatBytes(thresholdBytes)}）或大小未知的文件，" +
+                        "无法保存到服务器，只能使用 P2P。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (mode == ShareMode.P2P.name) {
+                Text("选择接收设备", style = MaterialTheme.typography.titleMedium)
 
             if (!app.settings.isConfigured) {
                 Text(
@@ -269,6 +366,7 @@ private fun ShareScreen(app: MoliSyncApp, payload: SharePayload, activity: Activ
                     }
                 }
             }
+            }
 
             error?.let { message ->
                 Text(
@@ -279,36 +377,70 @@ private fun ShareScreen(app: MoliSyncApp, payload: SharePayload, activity: Activ
             }
 
             if (starting) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                Text("正在打开文件句柄…", style = MaterialTheme.typography.bodySmall)
+                if (mode == ShareMode.CLOUD.name) {
+                    LinearProgressIndicator(
+                        progress = { cloudProgress },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        "正在上传… ${(cloudProgress * 100).toInt()}%",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                } else {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Text("正在打开文件句柄…", style = MaterialTheme.typography.bodySmall)
+                }
             }
 
             Button(
                 onClick = {
-                    val target = availableDevices.firstOrNull { it.deviceId == selectedDeviceId }
-                    if (target == null) {
-                        error = "请选择接收设备"
-                        return@Button
-                    }
-                    error = null
-                    starting = true
-                    scope.launch {
-                        startTransfer(
-                            app = app,
-                            activity = activity,
-                            target = target,
-                            payload = payload,
-                            onError = { message ->
-                                error = message
+                    if (mode == ShareMode.CLOUD.name) {
+                        if (!cloudEligible) {
+                            error = "文件超过同步阈值，无法保存到服务器"
+                            return@Button
+                        }
+                        error = null
+                        starting = true
+                        cloudProgress = 0f
+                        scope.launch {
+                            runCatching {
+                                uploadToCloud(app, activity, payload) { fraction ->
+                                    activity.runOnUiThread { cloudProgress = fraction }
+                                }
+                            }.onSuccess {
+                                Toast.makeText(activity, "已保存到服务器", Toast.LENGTH_SHORT).show()
+                                activity.finish()
+                            }.onFailure { failure ->
+                                error = failure.message ?: "上传失败"
                                 starting = false
-                            },
-                        )
+                            }
+                        }
+                    } else {
+                        val target = availableDevices.firstOrNull { it.deviceId == selectedDeviceId }
+                        if (target == null) {
+                            error = "请选择接收设备"
+                            return@Button
+                        }
+                        error = null
+                        starting = true
+                        scope.launch {
+                            startTransfer(
+                                app = app,
+                                activity = activity,
+                                target = target,
+                                payload = payload,
+                                onError = { message ->
+                                    error = message
+                                    starting = false
+                                },
+                            )
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = canStart,
             ) {
-                Text("开始传输")
+                Text(if (mode == ShareMode.CLOUD.name) "保存到服务器" else "开始传输")
             }
 
             Text(
@@ -339,6 +471,79 @@ private fun DeviceRow(device: DeviceTarget, selected: Boolean, onSelect: () -> U
             )
         }
     }
+}
+
+@Composable
+private fun ModeCard(
+    title: String,
+    body: String,
+    selected: Boolean,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = modifier.clickable(enabled = enabled, onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) MoliColors.Mint else MaterialTheme.colorScheme.surface,
+        ),
+        border = BorderStroke(
+            if (selected) 2.dp else 1.dp,
+            if (selected) MoliColors.Pine else MaterialTheme.colorScheme.outline,
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                body,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!enabled) {
+                Text(
+                    "超过阈值",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
+
+private suspend fun uploadToCloud(
+    app: MoliSyncApp,
+    activity: Activity,
+    payload: SharePayload,
+    onProgress: (Float) -> Unit,
+) = withContext(Dispatchers.IO) {
+    val files = payload.files
+    files.forEachIndexed { index, file ->
+        val kind = if (file.mimeType.startsWith("image/")) CloudKind.IMAGE else CloudKind.FILE
+        val hash = FileDigest.blake3(activity, file.uri)
+        app.cloudRepository.upload(
+            kind = kind,
+            displayName = file.displayName,
+            mimeType = file.mimeType,
+            size = file.sizeBytes,
+            blake3 = hash,
+            open = {
+                activity.contentResolver.openInputStream(file.uri)
+                    ?: throw IOException("无法打开 ${file.displayName}")
+            },
+            onProgress = { sent, total ->
+                val fileFraction = if (total > 0) sent.toFloat() / total.toFloat() else 0f
+                onProgress(((index + fileFraction) / files.size).coerceIn(0f, 1f))
+            },
+        )
+    }
+    onProgress(1f)
 }
 
 private suspend fun startTransfer(

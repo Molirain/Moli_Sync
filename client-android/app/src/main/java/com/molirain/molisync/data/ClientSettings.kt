@@ -26,8 +26,16 @@ class ClientSettings(context: Context) {
     val deviceName: String
         get() = preferences.getString(KEY_DEVICE_NAME, null) ?: defaultDeviceName()
 
+    val cloudThresholdBytes: Long
+        get() = preferences.getLong(KEY_CLOUD_THRESHOLD, DEFAULT_CLOUD_THRESHOLD_BYTES)
+
     val isConfigured: Boolean
         get() = !serverUrl.isNullOrBlank() && !certificateAlias.isNullOrBlank()
+
+    fun saveCloudThreshold(bytes: Long): Boolean {
+        val clamped = bytes.coerceIn(MIN_CLOUD_THRESHOLD_BYTES, MAX_CLOUD_THRESHOLD_BYTES)
+        return preferences.edit().putLong(KEY_CLOUD_THRESHOLD, clamped).commit()
+    }
 
     fun saveConnection(serverUrl: String, alias: String, fingerprint: String): Boolean =
         preferences.edit()
@@ -67,6 +75,11 @@ class ClientSettings(context: Context) {
         private const val KEY_CERT_ALIAS = "cert_alias"
         private const val KEY_CERT_FINGERPRINT = "cert_fingerprint"
         private const val KEY_DEVICE_NAME = "device_name"
+        private const val KEY_CLOUD_THRESHOLD = "cloud_threshold_bytes"
+
+        const val DEFAULT_CLOUD_THRESHOLD_BYTES = 15L * 1024L * 1024L
+        const val MIN_CLOUD_THRESHOLD_BYTES = 5L * 1024L * 1024L
+        const val MAX_CLOUD_THRESHOLD_BYTES = 50L * 1024L * 1024L
 
         /**
          * Validates and canonicalizes an HTTPS base URL. Credentials, query

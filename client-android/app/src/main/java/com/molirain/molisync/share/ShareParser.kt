@@ -48,7 +48,7 @@ object ShareParser {
             }
         }
 
-        val files = uris.mapNotNull { uri -> readMetadata(context, uri) }
+        val files = uris.mapNotNull { uri -> describe(context, uri) }
         val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
         return SharePayload(files, text)
     }
@@ -61,7 +61,12 @@ object ShareParser {
     private fun streamUris(intent: Intent): List<Uri> =
         intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM).orEmpty()
 
-    private fun readMetadata(context: Context, uri: Uri): SharedFile? {
+    /**
+     * Reads OpenableColumns metadata for one content URI. Exposed so the main
+     * screen can describe a file chosen through the document picker without
+     * duplicating provider-specific logic.
+     */
+    fun describe(context: Context, uri: Uri): SharedFile? {
         if (!uri.scheme.equals("content", ignoreCase = true)) {
             return null
         }

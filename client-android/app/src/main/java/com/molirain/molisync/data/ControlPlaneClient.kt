@@ -17,6 +17,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -50,6 +51,7 @@ class ControlPlaneClient(
     private val keyChain: KeyChainAdapter,
     private val directory: DeviceDirectory,
     private val scope: CoroutineScope,
+    private val syncEvents: MutableSharedFlow<Unit>? = null,
 ) {
     private val _state = MutableStateFlow<ConnectionState>(ConnectionState.NotConfigured)
     val state: StateFlow<ConnectionState> = _state.asStateFlow()
@@ -223,10 +225,20 @@ class ControlPlaneClient(
 
         when (envelope.type) {
             "welcome" -> {
-                envelope.devices
-                    ?.mapNotNull { it.toTarget() }
-                    ?.filter { it.deviceId != selfDeviceId }
-                    ?.let(directory::replaceAll)
+                directory.replaceAll(
+                    envelope.devices
+                        ?.mapNotNull { it.toTarget() }
+                        ?.filter { it.deviceId != selfDeviceId }
+                        .orEmpty(),
+                )
+                directory.setSelf(
+                    DeviceTarget(
+                        deviceId = selfDeviceId,
+                        name = settings.deviceName,
+                        platform = "android",
+                        endpoints = emptyList(),
+                    ),
+                )
 
                 envelope.heartbeatIntervalMs?.let {
                     heartbeatIntervalMs.set(it.coerceIn(MIN_HEARTBEAT_MS, MAX_HEARTBEAT_MS))
@@ -248,6 +260,7 @@ class ControlPlaneClient(
 
             "error" -> Log.w(TAG, "server error ${envelope.code}: ${envelope.message}")
             "heartbeat_ack", "pong" -> Unit
+            "sync_record" -> syncEvents?.tryEmit(Unit)
             else -> Log.d(TAG, "ignored control message ${envelope.type}")
         }
     }
