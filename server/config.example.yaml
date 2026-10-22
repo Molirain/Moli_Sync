@@ -1,0 +1,72 @@
+# MoliSync server configuration.
+#
+# Every value can be overridden with an environment variable named in the
+# `env:` comment of the corresponding key (MOLISYNC_* prefix). The
+# environment always wins over the YAML file.
+#
+# The server refuses to start with an invalid configuration, including a
+# catch-all trusted proxy range, because that would allow any client to
+# forge the mTLS identity headers.
+
+server:
+  # The reverse proxy must be the only reachable peer, so bind to loopback
+  # unless the service runs in a private container network.
+  listen: "127.0.0.1:9520"                      # MOLISYNC_SERVER_LISTEN
+  read_header_timeout: 10s                      # MOLISYNC_SERVER_READ_HEADER_TIMEOUT
+  read_timeout: 0s                              # MOLISYNC_SERVER_READ_TIMEOUT
+  write_timeout: 0s                             # MOLISYNC_SERVER_WRITE_TIMEOUT
+  idle_timeout: 120s                            # MOLISYNC_SERVER_IDLE_TIMEOUT
+  shutdown_timeout: 15s                         # MOLISYNC_SERVER_SHUTDOWN_TIMEOUT
+  max_header_bytes: 65536                       # MOLISYNC_SERVER_MAX_HEADER_BYTES
+
+proxy:
+  # Only requests whose TCP peer is inside one of these prefixes are treated
+  # as coming from the trusted reverse proxy. Catch-all prefixes are rejected.
+  trusted_cidrs:                                # MOLISYNC_PROXY_TRUSTED_CIDRS (comma separated)
+    - "127.0.0.1/32"
+    - "::1/128"
+
+  # Header names the proxy must set from the verified client certificate.
+  verify_header: "X-Client-Verify"              # MOLISYNC_PROXY_VERIFY_HEADER
+  fingerprint_header: "X-Client-Fingerprint"    # MOLISYNC_PROXY_FINGERPRINT_HEADER
+  dn_header: "X-Client-DN"                      # MOLISYNC_PROXY_DN_HEADER
+
+  # Exact (case-insensitive) value of the verify header for a valid mTLS
+  # handshake. Nginx emits "SUCCESS" for $ssl_client_verify.
+  required_verify_value: "SUCCESS"              # MOLISYNC_PROXY_REQUIRED_VERIFY_VALUE
+
+auth:
+  # fingerprint: DeviceID is the SHA-256 certificate fingerprint (recommended).
+  # dn_cn:       DeviceID is the CN of the certificate subject.
+  device_id_source: "fingerprint"               # MOLISYNC_AUTH_DEVICE_ID_SOURCE
+  max_header_value_bytes: 1024                  # MOLISYNC_AUTH_MAX_HEADER_VALUE_BYTES
+  max_common_name_length: 128                   # MOLISYNC_AUTH_MAX_COMMON_NAME_LENGTH
+  max_dn_bytes: 1024                            # MOLISYNC_AUTH_MAX_DN_BYTES
+
+registry:
+  # A device is taken offline when no heartbeat (or WebSocket pong) has been
+  # observed for this long.
+  offline_after: 90s                            # MOLISYNC_REGISTRY_OFFLINE_AFTER
+  sweep_interval: 15s                           # MOLISYNC_REGISTRY_SWEEP_INTERVAL
+  max_devices: 4096                             # MOLISYNC_REGISTRY_MAX_DEVICES
+  max_endpoints_per_device: 16                  # MOLISYNC_REGISTRY_MAX_ENDPOINTS_PER_DEVICE
+
+websocket:
+  read_limit_bytes: 65536                       # MOLISYNC_WEBSOCKET_READ_LIMIT_BYTES
+  handshake_timeout: 10s                        # MOLISYNC_WEBSOCKET_HANDSHAKE_TIMEOUT
+  hello_timeout: 10s                            # MOLISYNC_WEBSOCKET_HELLO_TIMEOUT
+  ping_interval: 25s                            # MOLISYNC_WEBSOCKET_PING_INTERVAL
+  pong_timeout: 60s                             # MOLISYNC_WEBSOCKET_PONG_TIMEOUT
+  write_timeout: 10s                            # MOLISYNC_WEBSOCKET_WRITE_TIMEOUT
+  send_buffer: 64                               # MOLISYNC_WEBSOCKET_SEND_BUFFER
+  heartbeat_interval: 25s                       # MOLISYNC_WEBSOCKET_HEARTBEAT_INTERVAL
+  max_messages_per_second: 20                   # MOLISYNC_WEBSOCKET_MAX_MESSAGES_PER_SECOND
+
+  # Browser origins allowed by the WebSocket handshake. Native clients send
+  # no Origin header and are always accepted. An empty list rejects every
+  # browser origin, which is the safe default for a non-browser API.
+  allowed_origins: []                           # MOLISYNC_WEBSOCKET_ALLOWED_ORIGINS (comma separated)
+
+log:
+  level: "info"                                 # MOLISYNC_LOG_LEVEL (debug|info|warn|error)
+  format: "json"                                # MOLISYNC_LOG_FORMAT (json|text)
