@@ -203,7 +203,7 @@ fun SetupScreen(app: MoliSyncApp, onConfigured: () -> Unit) {
                         serverUrl = normalized
                         fingerprint = currentFingerprint
                         status = "设置已保存，正在连接控制面…"
-                        app.controlPlane.restart()
+                        app.restartTransport()
                         onConfigured()
                     }
                 },

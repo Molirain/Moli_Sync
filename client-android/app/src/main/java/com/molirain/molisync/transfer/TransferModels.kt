@@ -40,6 +40,11 @@ data class TransferRequest(
     val endpoints: List<TransferEndpoint>,
     val files: List<TransferFile>,
     val sessionId: String? = null,
+    val ticket: String? = null,
+    val relayUrl: String? = null,
+    val serverUrl: String? = null,
+    val selfDeviceId: String? = null,
+    val selfDeviceName: String? = null,
 ) {
     fun validate() {
         if (!isCertificateFingerprint(targetDeviceId)) {
@@ -47,11 +52,17 @@ data class TransferRequest(
                 "目标设备没有指纹型 DeviceID，无法安全校验 P2P 对端证书",
             )
         }
+        if (sessionId.isNullOrBlank() || ticket.isNullOrBlank()) {
+            throw TransferValidationException("缺少服务器签发的 P2P 会话票据")
+        }
+        if (serverUrl.isNullOrBlank()) {
+            throw TransferValidationException("缺少服务器地址，无法回退中继")
+        }
         if (targetName.length > 128 || targetName.any { it.isISOControl() }) {
             throw TransferValidationException("目标设备名称不合法")
         }
-        if (endpoints.isEmpty()) {
-            throw TransferValidationException("目标设备没有可用的 P2P 地址")
+        if (endpoints.isEmpty() && relayUrl.isNullOrBlank()) {
+            throw TransferValidationException("目标设备没有可用的 P2P 地址，也没有可用的中继")
         }
         if (endpoints.size > MAX_ENDPOINTS) {
             throw TransferValidationException("P2P 地址数量超出限制")

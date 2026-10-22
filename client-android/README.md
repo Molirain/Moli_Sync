@@ -10,6 +10,9 @@ Kotlin + Jetpack Compose 客户端，面向 Android 8.0（API 26）及以上，`
    `content://` 句柄，不把文件复制到应用缓存。
 4. **前台数据同步服务**：大文件传输由 `dataSync` 类型的前台服务接管，通知栏实时展示
    速率/进度，并适配 Android 14 权限与 Android 15 `onTimeout`。
+5. **P2P 收发与中继回退**：应用内常驻 TLS 监听，配合服务端会话票据完成直连；不通时自动走中继。
+6. **相册归档与设备管理**：下载的图片进入 `Pictures/MoliSync`、文件进入 `Download/MoliSync`；
+   可自定义设备名，点开在线设备可查看全部 LAN/VPN 地址。
 
 ## 构建
 
@@ -100,7 +103,7 @@ Secrets，不会在 PR 验证 job 中暴露它们。
 | 图片 / 文件 | 单个 ≤ 设置阈值时，每次发送询问“保存到服务器”还是“P2P 直连”；> 阈值只允许 P2P |
 | 阈值 | 默认 15 MiB，可在设置页按 1 MiB 步进调整到 5–50 MiB |
 | 保存期限 | 服务端不自动过期；删除只能由发送者执行 |
-| 下载 | `GET /api/v1/blobs/{id}`，`OkHttp` 断点续传（`.part` + `Range`），保存到 `Android/data/com.molirain.molisync/files/Download`，无需存储权限 |
+| 下载 | `GET /api/v1/blobs/{id}`，`OkHttp` 断点续传（`.part` + `Range`）；完成后经 MediaStore 归入 `Pictures/MoliSync` / `Download/MoliSync`，Android 9 及以下回落公共目录 + MediaScanner |
 
 顶栏“在线”胶囊显示在线设备数（其他在线设备 + 本机）；本机在 `DeviceDirectory.self`
 中单独维护，因为服务端 `welcome` 的 `devices` 不包含自己。
@@ -111,8 +114,10 @@ Secrets，不会在 PR 验证 job 中暴露它们。
 - 上传体是自定义 `RequestBody`，直接边读边写，不复制到临时文件；
 - 失败时清理 `.part` 与已写入的半成品记录。
 
-图片栏目前使用渐变占位卡片（显示名称、大小、下载状态），服务端尚未生成缩略图；
-下载后可在系统文件管理器中打开。
+图片栏目前使用渐变占位卡片（显示名称、大小、下载状态），服务端不生成缩略图；
+长按条目可“打开”或“在文件管理器打开”，下载完成的文件已归档到 `Pictures/MoliSync`。
+
+文字预览超过 5 行时显示“点按展开全文”，详情弹窗内用 `SelectionContainer` 支持选取任意片段复制。
 
 ### 服务端证书信任
 
@@ -151,16 +156,17 @@ Secrets，不会在 PR 验证 job 中暴露它们。
 
 - LAN 候选立即并发探测，候选之间错开 50 ms；
 - VPN 候选从 300 ms 开始探测；
-- 总预算 1200 ms，超时后关闭所有候选 Socket 并抛出 `TransferException`；
+- 总预算 1200 ms，超时后关闭所有候选 Socket；
 - 获胜的 TCP Socket 升级为 mTLS，客户端证书来自 KeyChain；
 - 对端证书指纹必须等于控制面给出的目标 `DeviceID`。
 
+服务端通过 WebSocket 把一次性 32 字节会话票据同时推给双方。`P2pListener` 侧核对票据、
+对端指纹与 `TransferRequest.selfDeviceId` 后接收数据并写入 MediaStore；`TransferEngine`
+在写入 4 字节长度 + JSON manifest 时携带票据。任一候选都不可达时，发送端改用
+`RelayTransport` 以 `X-Session-Ticket` 打开服务端中继，字节流走 `io.Copy` 转发。
+
 取消传输时（通知栏“取消”或 Android 15 前台服务超时），会主动关闭 Socket，避免阻塞的
 `OutputStream.write` 让协程无法退出。
-
-> 当前仓库阶段：服务端已实现控制面设备发现，但 P2P 信令、会话票据与中继管道属于后续
-> 服务端里程碑；Android 端的数据面发送器已就绪，待对端监听/信令接入后即可端到端直传。
-> 竞速超时会明确失败，不会静默降级为不安全的明文连接。
 
 ## 前台服务与 Android 14/15
 
@@ -248,10 +254,9 @@ app/src/main/java/com/molirain/molisync/
 
 ## 当前限制
 
-- 图片栏只有渐变占位卡片，没有真实缩略图；服务端不生成预览，需要下载后查看。
+- 图片栏只有渐变占位卡片，没有真实缩略图（Windows 客户端已支持缩略图缓存）。
 - 服务端记录永不自动过期，也没有配额管理；长期使用会持续占用磁盘。
-- 服务端 P2P 信令、临时会话票据与中继转发尚未实现，因此 P2P 模式目前会明确失败并提示，
-  不会静默降级为明文连接。
+- P2P 依赖至少一条互达的 LAN/VPN 路径；跨 NAT 未做端口映射时只能走中继，吞吐受服务器带宽限制。
 - 分享页的云端上传运行在 Activity 生命周期内（≤15 MiB，通常几秒）；超大文件只能走 P2P，
   由前台服务接管。
-- Windows 客户端尚未提供云端上传界面，目前可接收文字与文件占位记录。
+- 自动检查更新暂缓（仓库尚未公开），升级需手动安装新 APK。

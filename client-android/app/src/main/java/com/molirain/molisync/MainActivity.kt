@@ -46,7 +46,7 @@ private fun RootScreen(app: MoliSyncApp) {
     ) { }
 
     LaunchedEffect(Unit) {
-        app.controlPlane.ensureStarted()
+        app.startTransport()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
                 context,

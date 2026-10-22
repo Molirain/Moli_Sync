@@ -115,7 +115,7 @@ class CloudRepository(
         record: CloudRecord,
         targetDir: File,
         onProgress: (Long, Long) -> Unit,
-    ): File = withContext(Dispatchers.IO) {
+    ): DownloadedRecord = withContext(Dispatchers.IO) {
         if (!targetDir.exists() && !targetDir.mkdirs()) {
             throw CloudException("无法创建下载目录")
         }
@@ -179,8 +179,24 @@ class CloudRepository(
             part.copyTo(target, overwrite = false)
             part.delete()
         }
-        target
+
+        // Publish into the shared collection so the gallery / file manager sees
+        // a real MoliSync folder. The private copy is kept for instant re-open.
+        val published = MediaStoreWriter.publish(
+            context = context,
+            source = target,
+            displayName = target.name,
+            mimeType = record.mimeType,
+            isImage = record.kind == CloudKind.IMAGE,
+        )
+        DownloadedRecord(target, published.uri, published.displayPath)
     }
+
+    data class DownloadedRecord(
+        val file: File,
+        val uri: String?,
+        val displayPath: String,
+    )
 
     suspend fun delete(recordId: String) = withContext(Dispatchers.IO) {
         val request = Request.Builder()

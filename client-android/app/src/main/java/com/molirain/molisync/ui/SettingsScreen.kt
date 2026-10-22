@@ -32,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -83,6 +84,7 @@ fun SettingsScreen(
     var thresholdMb by remember {
         mutableFloatStateOf(app.settings.cloudThresholdBytes / (1024f * 1024f))
     }
+    var deviceName by remember { mutableStateOf(app.settings.deviceName) }
     val status = remember { mutableStateOf<String?>(null) }
 
     val maxThresholdMb = ClientSettings.MAX_CLOUD_THRESHOLD_BYTES / (1024f * 1024f)
@@ -152,6 +154,42 @@ fun SettingsScreen(
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                 SettingRow("控制面", connectionLabel(connection))
+            }
+
+            SettingsCard {
+                Text(
+                    "设备名称",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                OutlinedTextField(
+                    value = deviceName,
+                    onValueChange = { if (it.length <= 64) deviceName = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("其他设备看到的名字") },
+                )
+                Text(
+                    "这个名称会显示给其他在线设备，最多 64 个字符。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                    onClick = {
+                        val saved = app.settings.saveDeviceName(deviceName)
+                        deviceName = app.settings.deviceName
+                        if (saved) {
+                            app.controlPlane.restart()
+                            status.value = "设备名称已更新，正在重新注册"
+                        } else {
+                            status.value = "无法保存设备名称"
+                        }
+                    },
+                    enabled = deviceName.isNotBlank() && deviceName != app.settings.deviceName,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("保存名称")
+                }
             }
 
             SettingsCard {
@@ -231,7 +269,7 @@ fun SettingsScreen(
                                 }.onSuccess { identity ->
                                     app.settings.saveCertificate(alias, identity.deviceId)
                                                 app.cloudRepository.close()
-                                                app.controlPlane.restart()
+                                                app.restartTransport()
                                                 status.value = "证书已更新，正在重连"
                                 }.onFailure { failure ->
                                                 status.value = failure.message ?: "证书不可用"

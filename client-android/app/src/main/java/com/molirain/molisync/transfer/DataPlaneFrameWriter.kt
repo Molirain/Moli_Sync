@@ -37,6 +37,11 @@ class DataPlaneFrameWriter(private val output: OutputStream) {
         writeFrame(FrameType.DATA, fileIndex, offset, chunkHash, payload, payloadLength)
     }
 
+    /** Receiver acknowledgement for a fully written file. */
+    fun writeAck(fileIndex: Int) {
+        writeFrame(FrameType.FILE_ACK, fileIndex, 0L, zeroHash, EMPTY_PAYLOAD, 0)
+    }
+
     fun writeAbort(fileIndex: Int, reason: String) {
         val encoded = reason.toByteArray(Charsets.UTF_8)
         val payload = if (encoded.size <= MAX_ABORT_REASON) encoded else encoded.copyOf(MAX_ABORT_REASON)
@@ -71,5 +76,6 @@ class DataPlaneFrameWriter(private val output: OutputStream) {
         const val HEADER_SIZE = 49
         const val HASH_SIZE = 32
         private const val MAX_ABORT_REASON = 1024
+        private val EMPTY_PAYLOAD = ByteArray(0)
     }
 }

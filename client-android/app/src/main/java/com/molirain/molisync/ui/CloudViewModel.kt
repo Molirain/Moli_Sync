@@ -11,6 +11,7 @@ import com.molirain.molisync.data.cloud.CloudKind
 import com.molirain.molisync.data.cloud.CloudRecord
 import com.molirain.molisync.share.SharedFile
 import com.molirain.molisync.data.cloud.FileDigest
+import com.molirain.molisync.data.cloud.MediaStoreWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +33,12 @@ data class DownloadProgress(val received: Long, val total: Long) {
         get() = if (total <= 0) 0f else (received.toFloat() / total.toFloat()).coerceIn(0f, 1f)
 }
 
+data class DownloadedFile(
+    val uri: String?,
+    val path: String,
+    val displayPath: String,
+)
+
 data class CloudUiState(
     val records: List<CloudRecord> = emptyList(),
     val loading: Boolean = false,
@@ -39,6 +46,7 @@ data class CloudUiState(
     val error: String? = null,
     val uploading: UploadProgress? = null,
     val downloading: Map<String, DownloadProgress> = emptyMap(),
+    val downloaded: Map<String, DownloadedFile> = emptyMap(),
     val message: String? = null,
 ) {
     fun ofKind(kind: String): List<CloudRecord> = records.filter { it.kind == kind }
@@ -157,6 +165,14 @@ class CloudViewModel(application: Application) : AndroidViewModel(application) {
             _state.update { it.copy(message = "该记录没有可下载的文件") }
             return
         }
+        if (_state.value.downloading.containsKey(record.recordId)) {
+            // A second tap must never start a second transfer for the same blob.
+            return
+        }
+        _state.value.downloaded[record.recordId]?.let { existing ->
+            _state.update { it.copy(message = "已保存在 ${existing.displayPath}") }
+            return
+        }
         viewModelScope.launch {
             val directory = targetDirectory()
             _state.update {
@@ -174,11 +190,18 @@ class CloudViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
                 }
-            }.onSuccess { file ->
+            }.onSuccess { result ->
                 _state.update {
                     it.copy(
                         downloading = it.downloading - record.recordId,
-                        message = "已保存到 ${file.absolutePath}",
+                        downloaded = it.downloaded + (
+                            record.recordId to DownloadedFile(
+                                uri = result.uri,
+                                path = result.file.absolutePath,
+                                displayPath = result.displayPath,
+                            )
+                            ),
+                        message = "已保存到 ${result.displayPath}",
                     )
                 }
             }.onFailure { failure ->
@@ -190,6 +213,23 @@ class CloudViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+    }
+
+    fun open(record: CloudRecord) {
+        val existing = _state.value.downloaded[record.recordId]
+        if (existing == null) {
+            download(record)
+            return
+        }
+        if (existing.uri != null) {
+            MediaStoreWriter.openWith(app, existing.uri, record.mimeType)
+        } else {
+            _state.update { it.copy(message = "文件位于 ${existing.displayPath}") }
+        }
+    }
+
+    fun revealInFileManager(record: CloudRecord) {
+        MediaStoreWriter.revealInFileManager(app, record.kind == CloudKind.IMAGE)
     }
 
     fun delete(record: CloudRecord) {

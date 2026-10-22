@@ -57,6 +57,29 @@ object ServerTrust {
 }
 
 /**
+ * Trust manager for the P2P listener. There is no shared CA hierarchy between
+ * devices, so the TLS layer only proves possession of the presented key; the
+ * caller must still pin the peer certificate fingerprint to the DeviceID from
+ * the server-issued session ticket before any byte is accepted.
+ */
+@SuppressLint("CustomX509TrustManager")
+object PinnedPeerTrustManager : X509TrustManager {
+    @Throws(CertificateException::class)
+    override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {
+        val leaf = chain?.firstOrNull()
+            ?: throw CertificateException("peer presented no certificate")
+        leaf.checkValidity()
+    }
+
+    @Throws(CertificateException::class)
+    override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {
+        throw CertificateException("this trust manager only validates P2P clients")
+    }
+
+    override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+}
+
+/**
  * P2P peer verification by pinned SHA-256 certificate fingerprint. The expected
  * fingerprint comes from the authenticated control-plane presence, so this is a
  * certificate pin rather than a trust-all shortcut. Expired certificates are

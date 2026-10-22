@@ -6,12 +6,14 @@ import com.molirain.molisync.data.ControlPlaneClient
 import com.molirain.molisync.data.DeviceDirectory
 import com.molirain.molisync.data.cloud.CloudRepository
 import com.molirain.molisync.security.KeyChainAdapter
+import com.molirain.molisync.transfer.P2pListener
 import com.molirain.molisync.transfer.TransferNotifications
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
 
 class MoliSyncApp : Application() {
     lateinit var settings: ClientSettings
@@ -27,6 +29,9 @@ class MoliSyncApp : Application() {
         private set
 
     lateinit var cloudRepository: CloudRepository
+        private set
+
+    lateinit var p2pListener: P2pListener
         private set
 
     /**
@@ -46,6 +51,7 @@ class MoliSyncApp : Application() {
         keyChain = KeyChainAdapter(this)
         deviceDirectory = DeviceDirectory()
         cloudRepository = CloudRepository(this, settings, keyChain)
+        p2pListener = P2pListener(this, keyChain, settings)
         controlPlane = ControlPlaneClient(
             context = this,
             settings = settings,
@@ -53,7 +59,37 @@ class MoliSyncApp : Application() {
             directory = deviceDirectory,
             scope = applicationScope,
             syncEvents = syncEvents,
+            endpoints = { p2pListener.endpoints() },
         )
         TransferNotifications.createChannel(this)
+
+        applicationScope.launch {
+            controlPlane.sessionTickets.collect { ticket ->
+                if (ticket.toDeviceId != p2pListener.selfDeviceId) {
+                    return@collect
+                }
+                p2pListener.register(ticket)
+                settings.serverUrl?.let { server ->
+                    p2pListener.openRelayStandby(ticket, server)
+                }
+            }
+        }
+
+        if (settings.isConfigured) {
+            startTransport()
+        }
+    }
+
+    /** Starts the P2P listener and the control plane with the current identity. */
+    fun startTransport() {
+        p2pListener.start()
+        controlPlane.ensureStarted()
+    }
+
+    /** Applies a new certificate or device name without restarting the app. */
+    fun restartTransport() {
+        p2pListener.stop()
+        startTransport()
+        controlPlane.restart()
     }
 }

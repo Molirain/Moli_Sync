@@ -16,7 +16,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -52,9 +54,20 @@ class ControlPlaneClient(
     private val directory: DeviceDirectory,
     private val scope: CoroutineScope,
     private val syncEvents: MutableSharedFlow<Unit>? = null,
+    private val endpoints: () -> List<EndpointDto> = { emptyList() },
 ) {
     private val _state = MutableStateFlow<ConnectionState>(ConnectionState.NotConfigured)
     val state: StateFlow<ConnectionState> = _state.asStateFlow()
+
+    private val _sessionTickets = MutableSharedFlow<SessionTicket>(
+        extraBufferCapacity = 16,
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST,
+    )
+    val sessionTickets: kotlinx.coroutines.flow.SharedFlow<SessionTicket> =
+        _sessionTickets.asSharedFlow()
+
+    @Volatile
+    private var activeSocket: WebSocket? = null
 
     private val restartMutex = Mutex()
     private var sessionJob: Job? = null
@@ -150,11 +163,13 @@ class ControlPlaneClient(
 
             val listener = object : WebSocketListener() {
                 override fun onOpen(webSocket: WebSocket, response: Response) {
+                    activeSocket = webSocket
                     val hello = HelloDto(
                         device = DeviceDescriptorDto(
                             name = settings.deviceName,
                             platform = "android",
                         ),
+                        endpoints = endpoints(),
                     )
                     if (!webSocket.send(ProtocolJson.encodeToString(HelloDto.serializer(), hello))) {
                         welcomed.completeExceptionally(IOException("无法发送 hello"))
@@ -192,7 +207,13 @@ class ControlPlaneClient(
                 val heartbeatJob = launch {
                     while (isActive) {
                         delay(heartbeatIntervalMs.get())
-                        if (!webSocket.send(HEARTBEAT_JSON)) {
+                        val payload = runCatching {
+                            ProtocolJson.encodeToString(
+                                HeartbeatDto.serializer(),
+                                HeartbeatDto(endpoints = endpoints()),
+                            )
+                        }.getOrElse { HEARTBEAT_JSON }
+                        if (!webSocket.send(payload)) {
                             break
                         }
                     }
@@ -209,6 +230,7 @@ class ControlPlaneClient(
                 webSocket.cancel()
                 throw IOException("控制面在 ${WELCOME_TIMEOUT_MS / 1000} 秒内未返回 welcome", timeout)
             } finally {
+                activeSocket = null
                 webSocket.cancel()
             }
         }
@@ -258,10 +280,65 @@ class ControlPlaneClient(
                 }
             }
 
+            "session_ticket" -> {
+                val sessionId = envelope.sessionId
+                val ticket = envelope.ticket
+                val from = envelope.fromDeviceId
+                val to = envelope.toDeviceId
+                if (sessionId.isNullOrBlank() || ticket.isNullOrBlank() || from.isNullOrBlank() || to.isNullOrBlank()) {
+                    Log.w(TAG, "ignored malformed session_ticket")
+                    return
+                }
+                val targets = envelope.devices.orEmpty().mapNotNull { it.toTarget() }
+                _sessionTickets.tryEmit(
+                    SessionTicket(
+                        sessionId = sessionId,
+                        ticket = ticket,
+                        fromDeviceId = from,
+                        toDeviceId = to,
+                        devices = targets,
+                        relayUrl = envelope.relayUrl,
+                        expiresAt = envelope.expiresAt ?: 0L,
+                        transferName = null,
+                    ),
+                )
+            }
+
             "error" -> Log.w(TAG, "server error ${envelope.code}: ${envelope.message}")
             "heartbeat_ack", "pong" -> Unit
             "sync_record" -> syncEvents?.tryEmit(Unit)
             else -> Log.d(TAG, "ignored control message ${envelope.type}")
+        }
+    }
+
+    /** Asks the server for a transfer grant to [toDeviceId]. */
+    fun requestSession(toDeviceId: String, transferName: String?): Boolean {
+        val socket = activeSocket ?: return false
+        val payload = runCatching {
+            ProtocolJson.encodeToString(
+                OpenSessionDto.serializer(),
+                OpenSessionDto(toDeviceId = toDeviceId, transferName = transferName),
+            )
+        }.getOrNull() ?: return false
+        return socket.send(payload)
+    }
+
+    /**
+     * Requests a session and waits for the server-issued ticket that belongs to
+     * this device as the sender.
+     */
+    suspend fun openSession(
+        toDeviceId: String,
+        transferName: String?,
+        timeoutMs: Long = 8_000,
+    ): SessionTicket {
+        val selfId = (state.value as? ConnectionState.Connected)?.deviceId
+            ?: throw IOException("控制面尚未连接")
+        if (!requestSession(toDeviceId, transferName)) {
+            throw IOException("控制面未连接，无法协商 P2P 会话")
+        }
+        return withTimeout(timeoutMs) {
+            sessionTickets.first { it.fromDeviceId == selfId && it.toDeviceId == toDeviceId }
         }
     }
 

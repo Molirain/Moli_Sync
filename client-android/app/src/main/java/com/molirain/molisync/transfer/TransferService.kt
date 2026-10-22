@@ -165,7 +165,7 @@ class TransferService : Service() {
 
         val throttler = ProgressThrottler()
         try {
-            val engine = TransferEngine(app.keyChain)
+            val engine = TransferEngine(app, app.keyChain)
             val summary = engine.run(
                 request = request,
                 alias = alias,

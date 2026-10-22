@@ -133,6 +133,29 @@ class KeyChainAdapter(private val context: Context) {
         return createSslContext(identity, trustManager) to identity
     }
 
+    /**
+     * SSLContext for the P2P listener. The same KeyChain identity is presented
+     * as the server certificate; peer certificates are checked against the
+     * session's expected fingerprint by [trustManager].
+     */
+    @Throws(KeyChainException::class)
+    fun createServerSslContext(
+        identity: KeyChainIdentity,
+        trustManager: X509TrustManager,
+    ): SSLContext {
+        return try {
+            SSLContext.getInstance("TLS").apply {
+                init(
+                    arrayOf<KeyManager>(KeyChainServerKeyManager(identity)),
+                    arrayOf<TrustManager>(trustManager),
+                    SecureRandom(),
+                )
+            }
+        } catch (exception: Exception) {
+            throw KeyChainException("无法初始化 P2P 监听 TLS 上下文", exception)
+        }
+    }
+
     private fun keyMatchesCertificate(privateKey: PrivateKey, certificate: X509Certificate): Boolean {
         val keyAlgorithm = privateKey.algorithm.replace("-", "").uppercase()
         val certAlgorithm = certificate.publicKey.algorithm.replace("-", "").uppercase()
@@ -143,8 +166,58 @@ class KeyChainAdapter(private val context: Context) {
 }
 
 /**
- * Key manager that presents exactly one KeyChain identity. Server aliases are
- * intentionally unavailable because this app never acts as a TLS server.
+ * Key manager for the P2P listener. It exposes one server alias backed by the
+ * KeyChain identity; the private key remains a system handle.
+ */
+class KeyChainServerKeyManager(private val identity: KeyChainIdentity) : javax.net.ssl.X509ExtendedKeyManager() {
+
+    override fun getClientAliases(keyType: String?, issuers: Array<out Principal>?): Array<String>? = null
+
+    override fun chooseClientAlias(
+        keyTypes: Array<out String>?,
+        issuers: Array<out Principal>?,
+        socket: java.net.Socket?,
+    ): String? = null
+
+    override fun getServerAliases(keyType: String?, issuers: Array<out Principal>?): Array<String>? {
+        return if (keyType != null && supports(keyType)) arrayOf(identity.alias) else null
+    }
+
+    override fun chooseServerAlias(
+        keyType: String?,
+        issuers: Array<out Principal>?,
+        socket: java.net.Socket?,
+    ): String? {
+        return if (keyType != null && supports(keyType)) identity.alias else null
+    }
+
+    override fun chooseEngineServerAlias(
+        keyType: String?,
+        issuers: Array<out Principal>?,
+        engine: javax.net.ssl.SSLEngine?,
+    ): String? = chooseServerAlias(keyType, issuers, null)
+
+    override fun chooseEngineClientAlias(
+        keyType: Array<out String>?,
+        issuers: Array<out Principal>?,
+        engine: javax.net.ssl.SSLEngine?,
+    ): String? = null
+
+    override fun getCertificateChain(alias: String?): Array<X509Certificate>? =
+        if (alias == identity.alias) identity.chain.copyOf() else null
+
+    override fun getPrivateKey(alias: String?): PrivateKey? =
+        if (alias == identity.alias) identity.privateKey else null
+
+    private fun supports(keyType: String): Boolean {
+        val algorithm = identity.privateKey.algorithm
+        return keyType.equals(algorithm, ignoreCase = true) ||
+            (algorithm.equals("EC", ignoreCase = true) && keyType.equals("ECDSA", ignoreCase = true))
+    }
+}
+
+/**
+ * Key manager that presents exactly one KeyChain identity for outbound mTLS.
  */
 class KeyChainKeyManager(private val identity: KeyChainIdentity) : javax.net.ssl.X509ExtendedKeyManager() {
 

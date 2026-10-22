@@ -34,6 +34,10 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -135,6 +139,10 @@ fun HomeScreen(app: MoliSyncApp, onSettings: () -> Unit) {
     var composerText by remember { mutableStateOf("") }
     var pending by remember { mutableStateOf<PendingSelection?>(null) }
     var deleteTarget by remember { mutableStateOf<CloudRecord?>(null) }
+    var textDetail by remember { mutableStateOf<CloudRecord?>(null) }
+    var actionsTarget by remember { mutableStateOf<CloudRecord?>(null) }
+    var showDevices by remember { mutableStateOf(false) }
+    var deviceDetail by remember { mutableStateOf<com.molirain.molisync.data.DeviceTarget?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     val threshold = app.settings.cloudThresholdBytes
@@ -169,6 +177,7 @@ fun HomeScreen(app: MoliSyncApp, onSettings: () -> Unit) {
                 refreshing = state.refreshing,
                 onRefresh = { viewModel.refresh(silent = true) },
                 onSettings = onSettings,
+                onDevices = { showDevices = true },
             )
         },
         bottomBar = {
@@ -202,6 +211,7 @@ fun HomeScreen(app: MoliSyncApp, onSettings: () -> Unit) {
                 MoliTab.TEXT -> TextTab(
                     records = state.ofKind(CloudKind.TEXT),
                     selfDeviceId = self?.deviceId,
+                    onOpen = { textDetail = it },
                     onCopy = { record ->
                         copyToClipboard(context, record.text)
                         scope.launch { snackbarHostState.showSnackbar("已复制到剪贴板") }
@@ -212,15 +222,17 @@ fun HomeScreen(app: MoliSyncApp, onSettings: () -> Unit) {
                 MoliTab.IMAGES -> ImageTab(
                     records = state.ofKind(CloudKind.IMAGE),
                     downloading = state.downloading,
-                    onOpen = viewModel::download,
-                    onDelete = { deleteTarget = it },
+                    downloaded = state.downloaded,
+                    onOpen = viewModel::open,
+                    onActions = { actionsTarget = it },
                 )
 
                 MoliTab.FILES -> FileTab(
                     records = state.ofKind(CloudKind.FILE),
                     downloading = state.downloading,
-                    onOpen = viewModel::download,
-                    onDelete = { deleteTarget = it },
+                    downloaded = state.downloaded,
+                    onOpen = viewModel::open,
+                    onActions = { actionsTarget = it },
                 )
             }
 
@@ -315,6 +327,276 @@ fun HomeScreen(app: MoliSyncApp, onSettings: () -> Unit) {
             },
         )
     }
+
+    textDetail?.let { record ->
+        TextDetailDialog(
+            record = record,
+            canDelete = record.senderDeviceId == self?.deviceId,
+            onCopy = {
+                copyToClipboard(context, record.text)
+                scope.launch { snackbarHostState.showSnackbar("已复制全文") }
+            },
+            onDelete = {
+                textDetail = null
+                deleteTarget = record
+            },
+            onDismiss = { textDetail = null },
+        )
+    }
+
+    actionsTarget?.let { record ->
+        ItemActionsDialog(
+            record = record,
+            isDownloaded = state.downloaded.containsKey(record.recordId),
+            onOpen = {
+                viewModel.open(record)
+                actionsTarget = null
+            },
+            onReveal = {
+                viewModel.revealInFileManager(record)
+                actionsTarget = null
+            },
+            onDelete = {
+                actionsTarget = null
+                deleteTarget = record
+            },
+            onDismiss = { actionsTarget = null },
+        )
+    }
+
+    if (showDevices) {
+        DeviceListDialog(
+            self = self,
+            others = others.values.sortedBy { it.name.lowercase() },
+            onPick = {
+                deviceDetail = it
+                showDevices = false
+            },
+            onDismiss = { showDevices = false },
+        )
+    }
+
+    deviceDetail?.let { device ->
+        DeviceDetailDialog(device = device, onDismiss = { deviceDetail = null })
+    }
+}
+
+@Composable
+private fun TextDetailDialog(
+    record: CloudRecord,
+    canDelete: Boolean,
+    onCopy: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("文字详情") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "${record.senderName.ifBlank { "未命名设备" }} · ${formatTimestamp(record.createdAt)}" +
+                        " · ${record.text.length} 字符",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                SelectionContainer {
+                    Text(
+                        record.text,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier
+                            .heightIn(max = 380.dp)
+                            .verticalScroll(rememberScrollState()),
+                    )
+                }
+                Text(
+                    "长按文字可选取任意片段。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            Row {
+                TextButton(onClick = onCopy) { Text("复制全文") }
+                TextButton(onClick = onDismiss) { Text("关闭") }
+            }
+        },
+        dismissButton = if (canDelete) {
+            { TextButton(onClick = onDelete) { Text("删除", color = MaterialTheme.colorScheme.error) } }
+        } else {
+            null
+        },
+    )
+}
+
+@Composable
+private fun ItemActionsDialog(
+    record: CloudRecord,
+    isDownloaded: Boolean,
+    onOpen: () -> Unit,
+    onReveal: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(record.displayName, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    if (isDownloaded) "已保存到 ${if (record.kind == CloudKind.IMAGE) "Pictures/MoliSync" else "Download/MoliSync"}"
+                    else "尚未下载，点“打开”会下载到 MoliSync 相册/文件夹。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
+                    Text("打开")
+                }
+                TextButton(onClick = onReveal, modifier = Modifier.fillMaxWidth()) {
+                    Text("在文件管理器打开所在文件夹")
+                }
+                TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
+                    Text("从服务器删除", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
+@Composable
+private fun DeviceListDialog(
+    self: com.molirain.molisync.data.DeviceTarget?,
+    others: List<com.molirain.molisync.data.DeviceTarget>,
+    onPick: (com.molirain.molisync.data.DeviceTarget) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("在线设备") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+            ) {
+                if (self == null) {
+                    Text("本机尚未注册到控制面。", style = MaterialTheme.typography.bodySmall)
+                } else {
+                    DeviceRow(target = self, isSelf = true, onClick = { onPick(self) })
+                }
+                if (others.isEmpty()) {
+                    Text(
+                        "没有其他设备在线。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    others.forEach { device ->
+                        DeviceRow(target = device, isSelf = false, onClick = { onPick(device) })
+                    }
+                }
+                Text(
+                    "点击设备可查看它上报的 LAN / VPN 候选地址。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } },
+    )
+}
+
+@Composable
+private fun DeviceRow(
+    target: com.molirain.molisync.data.DeviceTarget,
+    isSelf: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    if (isSelf) "${target.name}（本机）" else target.name,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    "${if (target.platform == "android") "Android" else target.platform} · " +
+                        "${target.endpoints.size} 个地址",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text("›", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun DeviceDetailDialog(
+    device: com.molirain.molisync.data.DeviceTarget,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(device.name) },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+            ) {
+                Text(
+                    "平台：${device.platform}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    "DeviceID：${device.deviceId}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (device.endpoints.isEmpty()) {
+                    Text(
+                        "对端尚未上报候选地址，P2P 直连不可用。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else {
+                    device.endpoints.forEach { endpoint ->
+                        Surface(
+                            color = MoliColors.Mint,
+                            shape = RoundedCornerShape(9.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(modifier = Modifier.padding(10.dp)) {
+                                Text(
+                                    if (endpoint.network == "lan") "局域网" else "VPN",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MoliColors.Pine,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.width(56.dp),
+                                )
+                                Text(
+                                    "${endpoint.ip}:${endpoint.port}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("关闭") } },
+    )
 }
 
 @Composable
@@ -326,6 +608,7 @@ private fun HeroHeader(
     refreshing: Boolean,
     onRefresh: () -> Unit,
     onSettings: () -> Unit,
+    onDevices: () -> Unit,
 ) {
     Surface(
         color = MoliColors.Pine,
@@ -360,7 +643,7 @@ private fun HeroHeader(
                     fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.weight(1f))
-                OnlinePill(count = onlineCount, connected = connected)
+                OnlinePill(count = onlineCount, connected = connected, onClick = onDevices)
                 IconButton(onClick = onSettings) {
                     Icon(
                         Icons.Outlined.Settings,
@@ -421,11 +704,12 @@ private fun HeroHeader(
 }
 
 @Composable
-private fun OnlinePill(count: Int, connected: Boolean) {
+private fun OnlinePill(count: Int, connected: Boolean, onClick: (() -> Unit)? = null) {
     Surface(
         color = Color(0x24CFE9DC),
         shape = CircleShape,
         border = BorderStroke(1.dp, Color(0x47CFE9DC)),
+        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -508,6 +792,7 @@ private fun BottomBar(selected: MoliTab, onSelect: (MoliTab) -> Unit) {
 private fun TextTab(
     records: List<CloudRecord>,
     selfDeviceId: String?,
+    onOpen: (CloudRecord) -> Unit,
     onCopy: (CloudRecord) -> Unit,
     onDelete: (CloudRecord) -> Unit,
 ) {
@@ -529,14 +814,23 @@ private fun TextTab(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 shape = RoundedCornerShape(18.dp),
+                modifier = Modifier.clickable { onOpen(record) },
             ) {
                 Column(modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 13.dp, bottom = 6.dp)) {
                     Text(
                         record.text,
                         style = MaterialTheme.typography.bodyLarge,
-                        maxLines = 10,
+                        maxLines = 5,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (record.text.length > 120 || record.text.count { it == '\n' } >= 5) {
+                        Text(
+                            "点按展开全文，可自由选择部分文字",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MoliColors.Pine,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CloudBadge()
@@ -576,8 +870,9 @@ private fun TextTab(
 private fun ImageTab(
     records: List<CloudRecord>,
     downloading: Map<String, DownloadProgress>,
+    downloaded: Map<String, DownloadedFile>,
     onOpen: (CloudRecord) -> Unit,
-    onDelete: (CloudRecord) -> Unit,
+    onActions: (CloudRecord) -> Unit,
 ) {
     if (records.isEmpty()) {
         EmptyState(
@@ -604,7 +899,7 @@ private fun ImageTab(
                     .background(Brush.linearGradient(gradientFor(record.recordId)))
                     .combinedClickable(
                         onClick = { onOpen(record) },
-                        onLongClick = { onDelete(record) },
+                        onLongClick = { onActions(record) },
                     ),
             ) {
                 Icon(
@@ -668,8 +963,9 @@ private fun ImageTab(
 private fun FileTab(
     records: List<CloudRecord>,
     downloading: Map<String, DownloadProgress>,
+    downloaded: Map<String, DownloadedFile>,
     onOpen: (CloudRecord) -> Unit,
-    onDelete: (CloudRecord) -> Unit,
+    onActions: (CloudRecord) -> Unit,
 ) {
     if (records.isEmpty()) {
         EmptyState(
@@ -692,7 +988,7 @@ private fun FileTab(
                 shape = RoundedCornerShape(18.dp),
                 modifier = Modifier.combinedClickable(
                     onClick = { onOpen(record) },
-                    onLongClick = { onDelete(record) },
+                    onLongClick = { onActions(record) },
                 ),
             ) {
                 Row(

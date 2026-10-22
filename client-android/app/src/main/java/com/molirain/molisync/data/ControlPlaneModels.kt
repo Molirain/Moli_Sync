@@ -35,6 +35,7 @@ data class HelloDto(
 @Serializable
 data class HeartbeatDto(
     val type: String = "heartbeat",
+    val endpoints: List<EndpointDto> = emptyList(),
 )
 
 @Serializable
@@ -57,6 +58,34 @@ data class EnvelopeDto(
     val device: DeviceDto? = null,
     val code: String? = null,
     val message: String? = null,
+    @SerialName("session_id") val sessionId: String? = null,
+    val ticket: String? = null,
+    @SerialName("from_device_id") val fromDeviceId: String? = null,
+    @SerialName("to_device_id") val toDeviceId: String? = null,
+    @SerialName("relay_url") val relayUrl: String? = null,
+    @SerialName("expires_at") val expiresAt: Long? = null,
+)
+
+/** Server-issued transfer grant shared by both participants. */
+data class SessionTicket(
+    val sessionId: String,
+    val ticket: String,
+    val fromDeviceId: String,
+    val toDeviceId: String,
+    val devices: List<DeviceTarget>,
+    val relayUrl: String?,
+    val expiresAt: Long,
+    val transferName: String?,
+) {
+    val isExpired: Boolean
+        get() = expiresAt > 0 && System.currentTimeMillis() > expiresAt
+}
+
+@Serializable
+internal data class OpenSessionDto(
+    val type: String = "open_session",
+    @SerialName("to_device_id") val toDeviceId: String,
+    @SerialName("transfer_name") val transferName: String? = null,
 )
 
 data class DeviceEndpoint(

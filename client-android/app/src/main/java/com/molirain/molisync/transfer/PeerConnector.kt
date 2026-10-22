@@ -21,12 +21,18 @@ import java.util.Collections
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.net.ssl.SSLSocket
 
-class PeerSession(private val socket: SSLSocket) : AutoCloseable {
-    val output = socket.outputStream
-    val input = socket.inputStream
+class PeerSession(
+    private val closeable: AutoCloseable,
+    input: java.io.InputStream,
+    output: java.io.OutputStream,
+) : AutoCloseable {
+    val input: java.io.InputStream = input
+    val output: java.io.OutputStream = output
+
+    constructor(socket: SSLSocket) : this(socket, socket.inputStream, socket.outputStream)
 
     override fun close() {
-        runCatching { socket.close() }
+        runCatching { closeable.close() }
     }
 }
 

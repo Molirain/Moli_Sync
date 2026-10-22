@@ -10,6 +10,9 @@ class TransferRequestTest {
     private val fingerprint = "ab".repeat(32)
 
     private fun validRequest() = TransferRequest(
+        sessionId = "session-1",
+        ticket = "dGlja2V0",
+        serverUrl = "https://sync.example.com",
         targetDeviceId = fingerprint,
         targetName = "Pixel 9",
         endpoints = listOf(
@@ -40,6 +43,9 @@ class TransferRequestTest {
     fun `json tolerates unknown and absent optional fields`() {
         val json = """
             {
+              "sessionId": "session-9",
+              "ticket": "dGlja2V0",
+              "serverUrl": "https://sync.example.com",
               "targetDeviceId": "$fingerprint",
               "targetName": "Pixel",
               "endpoints": [{"network": "lan", "ip": "10.0.0.2", "port": 9}],
@@ -50,7 +56,8 @@ class TransferRequestTest {
 
         val request = TransferRequest.fromJson(json)
 
-        assertNull(request.sessionId)
+        assertEquals("session-9", request.sessionId)
+        assertNull(request.relayUrl)
         assertEquals(0, request.endpoints.single().priority)
         assertNull(request.files.single().mimeType)
         request.validate()
@@ -83,6 +90,14 @@ class TransferRequestTest {
                 endpoints = listOf(TransferEndpoint("wan", "10.0.0.2", 1)),
             ).validate()
         }
+    }
+
+    @Test
+    fun `relay only request is valid without endpoints`() {
+        validRequest().copy(
+            endpoints = emptyList(),
+            relayUrl = "/api/v1/relay/session-1",
+        ).validate()
     }
 
     @Test

@@ -19,6 +19,7 @@ import kotlinx.coroutines.withContext
  * nothing is copied into app storage.
  */
 class TransferEngine(
+    private val context: android.content.Context,
     private val keyChain: KeyChainAdapter,
     private val connector: PeerConnector = PeerConnector(keyChain),
 ) {
@@ -39,7 +40,20 @@ class TransferEngine(
         var currentIndex = 0
         val completed = ArrayList<CompletedFile>(request.files.size)
 
-        connector.connect(request, alias).use { session ->
+        val session = openSession(request, alias)
+        session.use {
+            P2pProtocol.writeManifest(
+                it.output,
+                P2pManifest(
+                    sessionId = requireNotNull(request.sessionId),
+                    ticket = requireNotNull(request.ticket),
+                    deviceId = request.selfDeviceId.orEmpty(),
+                    deviceName = request.selfDeviceName.orEmpty(),
+                    files = request.files.map { file ->
+                        P2pFileMeta(name = file.name, size = file.size, mimeType = file.mimeType)
+                    },
+                ),
+            )
             // Blocking socket writes do not react to coroutine cancellation.
             // Closing the session from a sibling coroutine unblocks them when
             // the user cancels or Android 15's dataSync timeout fires.
@@ -98,5 +112,38 @@ class TransferEngine(
 
         val elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000
         TransferSummary(completed, totalBytes, elapsedMillis)
+    }
+
+    /**
+     * Tries every LAN/VPN candidate first; if none answers within the race
+     * deadline the stream falls back to the server relay for the same session.
+     */
+    private suspend fun openSession(request: TransferRequest, alias: String): PeerSession {
+        try {
+            return connector.connect(request, alias)
+        } catch (direct: Exception) {
+            val relayUrl = request.relayUrl
+                ?: throw TransferException(direct.message ?: "P2P 直连失败", direct)
+            val serverUrl = request.serverUrl
+                ?: throw TransferException("缺少服务器地址，无法回退中继", direct)
+            val ticket = request.ticket
+                ?: throw TransferException("缺少 P2P 会话票据", direct)
+            return try {
+                val streams = RelayTransport.connect(
+                    context = context,
+                    keyChain = keyChain,
+                    alias = alias,
+                    serverUrl = serverUrl,
+                    relayUrl = relayUrl,
+                    ticket = ticket,
+                )
+                PeerSession(streams, streams.input, streams.output)
+            } catch (relay: Exception) {
+                throw TransferException(
+                    (direct.message ?: "P2P 直连失败") + "；中继也失败：" + (relay.message ?: "未知错误"),
+                    relay,
+                )
+            }
+        }
     }
 }

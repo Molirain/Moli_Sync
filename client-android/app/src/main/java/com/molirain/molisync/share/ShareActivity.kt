@@ -107,14 +107,16 @@ private fun ShareScreen(app: MoliSyncApp, payload: SharePayload, activity: Activ
         mutableStateOf(if (cloudEligible) ShareMode.CLOUD.name else ShareMode.P2P.name)
     }
 
+    // Devices are listed even before they report endpoints, so the user sees
+    // why a transfer cannot start instead of an empty list.
     val availableDevices = remember(devices) {
         devices.values
-            .filter { it.endpoints.isNotEmpty() && isCertificateFingerprint(it.deviceId) }
+            .filter { isCertificateFingerprint(it.deviceId) }
             .sortedBy { it.name.lowercase() }
     }
 
     LaunchedEffect(Unit) {
-        app.controlPlane.ensureStarted()
+        app.startTransport()
     }
 
     LaunchedEffect(availableDevices, selectedDeviceId) {
@@ -563,10 +565,21 @@ private suspend fun startTransfer(
             }
         }
 
+        // The server issues the transfer ticket and the freshest endpoint list
+        // for both participants. No data leaves the app before this succeeds.
+        val session = app.controlPlane.openSession(
+            toDeviceId = target.deviceId,
+            transferName = payload.files.firstOrNull()?.displayName,
+        )
+        val freshest = session.devices.firstOrNull { it.deviceId == target.deviceId } ?: target
+        val selfId = (app.controlPlane.state.value as? ConnectionState.Connected)?.deviceId
+            ?: app.settings.certificateFingerprint
+            ?: throw IOException("本机身份不可用")
+
         val request = TransferRequest(
             targetDeviceId = target.deviceId,
             targetName = target.name,
-            endpoints = target.endpoints.map {
+            endpoints = freshest.endpoints.map {
                 TransferEndpoint(
                     network = it.network,
                     ip = it.ip,
@@ -582,6 +595,12 @@ private suspend fun startTransfer(
                     mimeType = it.mimeType,
                 )
             },
+            sessionId = session.sessionId,
+            ticket = session.ticket,
+            relayUrl = session.relayUrl,
+            serverUrl = app.settings.serverUrl,
+            selfDeviceId = selfId,
+            selfDeviceName = app.settings.deviceName,
         )
         request.validate()
 
