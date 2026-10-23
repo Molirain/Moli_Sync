@@ -1,0 +1,51 @@
+<p class="docs-lead">The control plane is a single Go binary shipped as a distroless container. It expects a reverse proxy to terminate mTLS and never publishes port 9520 by itself.</p>
+
+<h2 id="requirements">Requirements</h2>
+<ul>
+  <li>A Linux host with Docker 24+ (the example Compose file), or Go 1.22+ to build from source.</li>
+  <li>A reverse proxy that can verify client certificates: Nginx, Nginx Proxy Manager or Caddy.</li>
+  <li>A private Docker network shared only by the proxy and the control plane.</li>
+</ul>
+
+<h2 id="pull-and-run">Pull and run</h2>
+<pre data-lang="sh"><code>docker pull ghcr.io/molirain/molisync-server:latest
+cp docker-compose.example.yml docker-compose.yml
+docker compose up -d
+docker compose ps</code></pre>
+<p>The image is multi-arch (<code>linux/amd64</code>, <code>linux/arm64</code>), runs as <code>nonroot</code> and contains no shell or package manager.</p>
+
+<div class="callout">
+  <span class="callout-label">Caution</span>
+  <p>The example Compose file does not publish port <code>9520</code>. Do not add a host port mapping; join your existing reverse proxy to the <code>molisync-internal</code> network instead.</p>
+</div>
+
+<h2 id="configuration">Configuration</h2>
+<p>Every setting can be passed as an environment variable; a YAML file works too, and environment variables win over the file.</p>
+<table>
+  <thead>
+    <tr><th>Variable</th><th>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>MOLISYNC_SERVER_LISTEN</code></td><td>Listen address. Defaults to <code>0.0.0.0:9520</code> inside the image.</td></tr>
+    <tr><td><code>MOLISYNC_PROXY_TRUSTED_CIDRS</code></td><td>Proxy networks allowed to assert an identity. Must match the Compose subnet.</td></tr>
+    <tr><td><code>MOLISYNC_PROXY_VERIFY_HEADER</code></td><td>Header carrying the verified result.</td></tr>
+    <tr><td><code>MOLISYNC_PROXY_FINGERPRINT_HEADER</code></td><td>Header carrying the certificate fingerprint.</td></tr>
+    <tr><td><code>MOLISYNC_PROXY_DN_HEADER</code></td><td>Header carrying the certificate subject.</td></tr>
+    <tr><td><code>MOLISYNC_AUTH_DEVICE_ID_SOURCE</code></td><td><code>fingerprint</code> (recommended) or <code>dn_cn</code>.</td></tr>
+    <tr><td><code>MOLISYNC_STORAGE_DATA_DIR</code></td><td>SQLite database and blob root. Defaults to <code>/var/lib/molisync</code>.</td></tr>
+    <tr><td><code>MOLISYNC_STORAGE_MAX_ITEM_BYTES</code></td><td>Maximum uploaded blob size. Default <code>64 MiB</code>.</td></tr>
+    <tr><td><code>MOLISYNC_LOG_LEVEL</code> / <code>..._FORMAT</code></td><td><code>debug|info|warn|error</code> and <code>json|text</code>.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="health-and-data">Health and data</h2>
+<p>The image health check calls the binary's <code>-healthcheck-url</code> probe against <code>http://127.0.0.1:9520/healthz</code>. If you change the listen port, override the Compose health check too.</p>
+<p>Records and blobs live in the <code>molisync-data</code> volume. Back up the SQLite database and the <code>blobs/</code> directory together; deleting the volume deletes every synced record.</p>
+
+<h2 id="build-locally">Build locally</h2>
+<pre data-lang="sh"><code>cd server
+docker build -t molisync-server:dev .
+docker run --rm -p 127.0.0.1:9520:9520 \
+  -e MOLISYNC_PROXY_TRUSTED_CIDRS=127.0.0.1/32 \
+  molisync-server:dev</code></pre>
+<p>Next: <a href="./proxy.html">terminate mTLS at your reverse proxy</a>.</p>

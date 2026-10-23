@@ -1,0 +1,28 @@
+<p class="docs-lead">Android 客户端是一个面向 Android 8.0 / API 26 及以上版本的 Kotlin 应用。它通过 KeyChain 获取客户端证书，强制 HTTPS，并通过 MediaStore 归档接收的文件。</p>
+
+<h2 id="requirements">环境要求</h2>
+<ul>
+  <li>Android 8.0 / API 26 或更高。</li>
+  <li>JDK 17+、Android SDK Platform 35 与 Build-Tools 35.0.0。</li>
+</ul>
+
+<h2 id="build">构建</h2>
+<pre data-lang="sh"><code>cd client-android
+./gradlew :app:assembleDebug
+./gradlew :app:testDebugUnitTest
+./gradlew :app:lintDebug</code></pre>
+<p>Windows 下请使用 <code>gradlew.bat</code>。</p>
+
+<h2 id="certificates">证书与传输</h2>
+<p>客户端通过 KeyChain 获取证书与私钥；强制 HTTPS，禁用明文流量与 HTTP 重定向；打包 <code>molisync_ca.crt</code> 时会固定该私有 CA。</p>
+
+<h2 id="features">能力</h2>
+<ul>
+  <li>系统分享与流式发送。</li>
+  <li>P2P 收发与前台数据同步服务。</li>
+  <li>MediaStore 归档：<code>Pictures/MoliSync</code> 与 <code>Download/MoliSync</code>。</li>
+  <li>可在运行时调整 <code>5–50 MiB</code> 的 P2P 阈值。</li>
+</ul>
+
+<h2 id="shared">共同行为</h2>
+<p>15 MiB 阈值、49 字节帧、一次性会话票据与“只有发送者能删除”与 Windows 共用。参见<a href="./clients.html#shared">客户端共同行为</a>或完整的 <a href="https://github.com/Molirain/Moli_Sync/blob/master/client-android/README.md" target="_blank" rel="noopener">client-android 指南</a>。</p>

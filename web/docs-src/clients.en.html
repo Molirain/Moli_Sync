@@ -1,0 +1,17 @@
+<p class="docs-lead">Both clients speak the same versioned HTTP/WebSocket protocol and use certificates from the operating system's store. The server URL is always HTTPS. Choose a client for its build and connection steps.</p>
+
+<h2 id="windows">Windows</h2>
+<p>The .NET 8 desktop client is published for <code>win-x64</code>, reads its key from the Windows personal certificate store, and supports NativeAOT.</p>
+<p><a href="./windows.html">Build and connect the Windows client →</a></p>
+
+<h2 id="android">Android</h2>
+<p>The Kotlin client targets Android 8.0 / API 26 and newer, gets its identity from KeyChain, and archives downloads through MediaStore.</p>
+<p><a href="./android.html">Build and connect the Android client →</a></p>
+
+<h2 id="shared">Shared behavior</h2>
+<ul>
+  <li><code>15 MiB</code> default threshold; above it, P2P only.</li>
+  <li><code>49-byte</code> frames and single-use session tickets.</li>
+  <li>Only the sender can delete a record.</li>
+</ul>
+<p>Full client guides: <a href="https://github.com/Molirain/Moli_Sync/blob/master/client-windows/README.md" target="_blank" rel="noopener">Windows</a> · <a href="https://github.com/Molirain/Moli_Sync/blob/master/client-android/README.md" target="_blank" rel="noopener">Android</a>.</p>

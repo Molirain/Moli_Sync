@@ -1,0 +1,80 @@
+window.MoliSyncI18n.add("zh-CN", {
+  "manual": {
+    "ui": {
+      "docs": "文档",
+      "menu": "文档目录",
+      "onThisPage": "本页内容",
+      "previous": "上一篇",
+      "next": "下一篇",
+      "copy": "复制",
+      "copied": "已复制",
+      "pagination": "分页",
+      "home": "首页 ↗"
+    },
+    "group": {
+      "start": "开始使用",
+      "clients": "客户端",
+      "reference": "参考"
+    },
+    "nav": {
+      "overview": "总览",
+      "server": "服务端",
+      "proxy": "反向代理",
+      "clients": "选择客户端",
+      "windows": "Windows",
+      "android": "Android",
+      "protocol": "协议",
+      "operations": "运维"
+    },
+    "pages": {
+      "overview": {
+        "title": "总览",
+        "docTitle": "MoliSync 文档",
+        "desc": "自托管跨端传输与同步：架构、部署、客户端与协议。",
+        "body": "<p class=\"docs-lead\">MoliSync 是一个自托管控制面加两个客户端，用于在你掌控的设备之间搬运文字、图片与文件。身份来自客户端证书；传输优先尝试 LAN/VPN 直连，失败后回退到零落盘中继。</p>\r\n\r\n<h2 id=\"what-runs-where\">各部分负责什么</h2>\r\n<p>三个组件共用一套带版本的协议：</p>\r\n<table>\r\n  <thead>\r\n    <tr><th>组件</th><th>技术栈</th><th>职责</th></tr>\r\n  </thead>\r\n  <tbody>\r\n    <tr><td>控制面</td><td>Go · Docker</td><td>受信代理鉴权、设备注册表、WebSocket 在线状态、记录与 blob 存储。</td></tr>\r\n    <tr><td>Windows 客户端</td><td>.NET 8 · Avalonia</td><td>三栏云同步、读取系统证书、Range 下载、P2P 收发。</td></tr>\r\n    <tr><td>Android 客户端</td><td>Kotlin · Compose</td><td>KeyChain mTLS、系统分享、前台同步服务与 MediaStore 归档。</td></tr>\r\n  </tbody>\r\n</table>\r\n\r\n<h2 id=\"how-a-transfer-works\">一次传输如何发生</h2>\r\n<ol>\r\n  <li>反向代理校验客户端证书，并覆盖身份头。</li>\r\n  <li>控制面把证书指纹映射为稳定的 <code>DeviceID</code>，并签发一次性 <code>32 字节</code> 会话票据。</li>\r\n  <li>两端按 <code>300 ms</code> 一档并发探测 LAN 与 VPN 候选地址。</li>\r\n  <li>直连成功时完成 mTLS 并传输 <code>49 字节</code> 定长帧；<code>1.2 秒</code>内无人应答则由服务端用 <code>io.Copy</code> 中继同一会话。</li>\r\n  <li>文字与阈值内的文件也可以持久化：SQLite 元数据加一个 blob 目录。</li>\r\n</ol>\r\n\r\n<h2 id=\"current-limits\">当前限制</h2>\r\n<ul>\r\n  <li>记录不会自动过期，目前也没有配额。</li>\r\n  <li>端到端 P2P 仍需真实网络回归测试。</li>\r\n  <li>客户端自动检查更新暂缓。</li>\r\n  <li>仓库尚未声明全局许可证。</li>\r\n</ul>\r\n\r\n<div class=\"callout\">\r\n  <span class=\"callout-label\">状态</span>\r\n  <p>版本 <code>0.5.0 系列</code>，仍在开发中。请把部署说明当作可工作的基线，而不是生产保证。</p>\r\n</div>\r\n\r\n<h2 id=\"start-here\">从这里开始</h2>\r\n<ul>\r\n  <li><a href=\"./server.html\">部署控制面</a>，放在你自己的反向代理之后。</li>\r\n  <li><a href=\"./clients.html\">选择 Windows 或 Android 客户端</a>。</li>\r\n  <li>在编写新客户端之前，先读<a href=\"./protocol.html\">线上协议</a>。</li>\r\n</ul>"
+      },
+      "server": {
+        "title": "部署服务端",
+        "docTitle": "部署服务端 — MoliSync 文档",
+        "desc": "在私有网络后运行 Go 控制面：镜像、Compose、环境变量、健康检查与备份。",
+        "body": "<p class=\"docs-lead\">控制面是一个静态编译的 Go 服务，以 distroless 容器分发。它假定由反向代理终止 mTLS，自身从不发布 9520 端口。</p>\r\n\r\n<h2 id=\"requirements\">环境要求</h2>\r\n<ul>\r\n  <li>Linux 主机，Docker 24+（使用示例 Compose），或 Go 1.22+ 从源码构建。</li>\r\n  <li>能校验证书链的反向代理：Nginx、Nginx Proxy Manager 或 Caddy。</li>\r\n  <li>一个只允许代理与控制面加入的私有 Docker 网络。</li>\r\n</ul>\r\n\r\n<h2 id=\"pull-and-run\">拉取并启动</h2>\r\n<pre data-lang=\"sh\"><code>docker pull ghcr.io/molirain/molisync-server:latest\r\ncp docker-compose.example.yml docker-compose.yml\r\ndocker compose up -d\r\ndocker compose ps</code></pre>\r\n<p>镜像支持 <code>linux/amd64</code> 与 <code>linux/arm64</code>，以 <code>nonroot</code> 运行，内部没有 shell 或包管理器。</p>\r\n\r\n<div class=\"callout\">\r\n  <span class=\"callout-label\">警告</span>\r\n  <p>示例 Compose 不会发布 <code>9520</code> 端口。不要添加宿主机端口映射；把你现有的反向代理加入 <code>molisync-internal</code> 网络即可。</p>\r\n</div>\r\n\r\n<h2 id=\"configuration\">配置</h2>\r\n<p>所有设置都能用环境变量传入，也可以使用 YAML；同名环境变量优先于文件。</p>\r\n<table>\r\n  <thead>\r\n    <tr><th>变量</th><th>作用</th></tr>\r\n  </thead>\r\n  <tbody>\r\n    <tr><td><code>MOLISYNC_SERVER_LISTEN</code></td><td>监听地址。镜像内默认 <code>0.0.0.0:9520</code>。</td></tr>\r\n    <tr><td><code>MOLISYNC_PROXY_TRUSTED_CIDRS</code></td><td>允许断言身份的代理网段，必须与 Compose 子网一致。</td></tr>\r\n    <tr><td><code>MOLISYNC_PROXY_VERIFY_HEADER</code></td><td>携带校验结果的头。</td></tr>\r\n    <tr><td><code>MOLISYNC_PROXY_FINGERPRINT_HEADER</code></td><td>携带证书指纹的头。</td></tr>\r\n    <tr><td><code>MOLISYNC_PROXY_DN_HEADER</code></td><td>携带证书 Subject 的头。</td></tr>\r\n    <tr><td><code>MOLISYNC_AUTH_DEVICE_ID_SOURCE</code></td><td><code>fingerprint</code>（推荐）或 <code>dn_cn</code>。</td></tr>\r\n    <tr><td><code>MOLISYNC_STORAGE_DATA_DIR</code></td><td>SQLite 与 blob 根目录，默认 <code>/var/lib/molisync</code>。</td></tr>\r\n    <tr><td><code>MOLISYNC_STORAGE_MAX_ITEM_BYTES</code></td><td>单个 blob 上限，默认 <code>64 MiB</code>。</td></tr>\r\n    <tr><td><code>MOLISYNC_LOG_LEVEL</code> / <code>..._FORMAT</code></td><td><code>debug|info|warn|error</code> 与 <code>json|text</code>。</td></tr>\r\n  </tbody>\r\n</table>\r\n\r\n<h2 id=\"health-and-data\">健康检查与数据</h2>\r\n<p>镜像健康检查调用二进制自带的 <code>-healthcheck-url</code>，探测 <code>http://127.0.0.1:9520/healthz</code>。如果修改了监听端口，Compose 的健康检查也要一起改。</p>\r\n<p>记录与 blob 都存放在 <code>molisync-data</code> 卷中。备份时请同时复制 SQLite 数据库与 <code>blobs/</code> 目录；删除卷就等于删除全部同步记录。</p>\r\n\r\n<h2 id=\"build-locally\">本地构建</h2>\r\n<pre data-lang=\"sh\"><code>cd server\r\ndocker build -t molisync-server:dev .\r\ndocker run --rm -p 127.0.0.1:9520:9520 \\\r\n  -e MOLISYNC_PROXY_TRUSTED_CIDRS=127.0.0.1/32 \\\r\n  molisync-server:dev</code></pre>\r\n<p>下一步：<a href=\"./proxy.html\">在反向代理上终止 mTLS</a>。</p>"
+      },
+      "proxy": {
+        "title": "反向代理与 mTLS",
+        "docTitle": "反向代理与 mTLS — MoliSync 文档",
+        "desc": "终止 mTLS、清除身份头，并把受信代理边界收窄。",
+        "body": "<p class=\"docs-lead\">MoliSync 只信任来自配置网段的反向代理身份头。代理必须先校验证书、清除入站身份头，再写入新的校验结果。</p>\r\n\r\n<h2 id=\"trust-order\">信任顺序</h2>\r\n<ol>\r\n  <li>终止 TLS，并请求客户端证书。</li>\r\n  <li>校验证书链，必要时检查吊销状态。</li>\r\n  <li>清除入站 <code>X-Client-*</code> 头。</li>\r\n  <li>用代理自身的变量写入校验结果、指纹与 Subject。</li>\r\n  <li>转发 WebSocket Upgrade，并关闭请求/响应缓冲。</li>\r\n</ol>\r\n\r\n<h2 id=\"nginx\">Nginx 示例</h2>\r\n<pre data-lang=\"nginx\"><code>proxy_http_version 1.1;\r\nproxy_set_header Upgrade $http_upgrade;\r\nproxy_set_header Connection $connection_upgrade;\r\nproxy_request_buffering off;\r\nproxy_buffering off;\r\n\r\nproxy_set_header X-Client-Verify $ssl_client_verify;\r\nproxy_set_header X-Client-Fingerprint $ssl_client_fingerprint;\r\nproxy_set_header X-Client-DN $ssl_client_s_dn;</code></pre>\r\n\r\n<h2 id=\"map-headers\">映射头名称</h2>\r\n<p>告诉控制面应该读取哪些头：</p>\r\n<table>\r\n  <thead>\r\n    <tr><th>变量</th><th>示例值</th></tr>\r\n  </thead>\r\n  <tbody>\r\n    <tr><td><code>MOLISYNC_PROXY_VERIFY_HEADER</code></td><td><code>X-Client-Verify</code></td></tr>\r\n    <tr><td><code>MOLISYNC_PROXY_FINGERPRINT_HEADER</code></td><td><code>X-Client-Fingerprint</code></td></tr>\r\n    <tr><td><code>MOLISYNC_PROXY_DN_HEADER</code></td><td><code>X-Client-DN</code></td></tr>\r\n  </tbody>\r\n</table>\r\n\r\n<h2 id=\"network\">网络边界</h2>\r\n<p>只有代理与控制面加入 <code>molisync-internal</code>（示例子网为 <code>172.28.0.0/24</code>）。<code>MOLISYNC_PROXY_TRUSTED_CIDRS</code> 应尽量收紧到该网络。</p>\r\n\r\n<div class=\"callout\">\r\n  <span class=\"callout-label\">警告</span>\r\n  <p>能进入受信网络的任何进程都能伪造身份头。不要把 Go 服务直接暴露到公网，也不要让客户端加入该网络。</p>\r\n</div>\r\n\r\n<h2 id=\"checklist\">检查清单</h2>\r\n<ul>\r\n  <li>客户端证书校验已开启，并用受信证书验证过。</li>\r\n  <li>边缘已清除入站 <code>X-Client-*</code> 头。</li>\r\n  <li><code>MOLISYNC_PROXY_TRUSTED_CIDRS</code> 只匹配代理网络。</li>\r\n  <li>WebSocket Upgrade 与流式转发（无缓冲）已验证。</li>\r\n  <li>健康检查仍指向真实监听端口。</li>\r\n</ul>"
+      },
+      "clients": {
+        "title": "客户端",
+        "docTitle": "客户端 — MoliSync 文档",
+        "desc": "选择 Windows（.NET 8）或 Android（Kotlin）客户端，查看构建与连接步骤。",
+        "body": "<p class=\"docs-lead\">两个客户端共用同一套带版本的 HTTP/WebSocket 协议，并使用操作系统证书存储中的证书。服务器地址始终是 HTTPS。选择客户端查看构建与连接步骤。</p>\r\n\r\n<h2 id=\"windows\">Windows</h2>\r\n<p>.NET 8 桌面客户端，发布为 <code>win-x64</code>，从 Windows 个人证书存储读取密钥，并支持 NativeAOT。</p>\r\n<p><a href=\"./windows.html\">构建并连接 Windows 客户端 →</a></p>\r\n\r\n<h2 id=\"android\">Android</h2>\r\n<p>Kotlin 客户端，面向 Android 8.0 / API 26 及以上，通过 KeyChain 获取身份，并通过 MediaStore 归档下载。</p>\r\n<p><a href=\"./android.html\">构建并连接 Android 客户端 →</a></p>\r\n\r\n<h2 id=\"shared\">共同行为</h2>\r\n<ul>\r\n  <li>默认阈值 <code>15 MiB</code>；超过后只能 P2P。</li>\r\n  <li>固定 <code>49 字节</code> 帧与一次性会话票据。</li>\r\n  <li>只有发送者能删除记录。</li>\r\n</ul>\r\n<p>完整客户端指南：<a href=\"https://github.com/Molirain/Moli_Sync/blob/master/client-windows/README.md\" target=\"_blank\" rel=\"noopener\">Windows</a> · <a href=\"https://github.com/Molirain/Moli_Sync/blob/master/client-android/README.md\" target=\"_blank\" rel=\"noopener\">Android</a>。</p>"
+      },
+      "windows": {
+        "title": "Windows 客户端",
+        "docTitle": "Windows 客户端 — MoliSync 文档",
+        "desc": "构建、使用 NativeAOT 发布并连接 .NET 8 Windows 客户端。",
+        "body": "<p class=\"docs-lead\">Windows 客户端是一个发布为 <code>win-x64</code> 的 .NET 8 桌面应用。它从 Windows 个人证书存储读取证书与私钥，并连接你的 HTTPS 服务器。</p>\r\n\r\n<h2 id=\"requirements\">环境要求</h2>\r\n<ul>\r\n  <li>Windows 10 或 11，以及 .NET 8 SDK。</li>\r\n  <li>使用 NativeAOT 发布时还需要 Visual C++ 构建工具。</li>\r\n</ul>\r\n\r\n<h2 id=\"build\">构建与发布</h2>\r\n<pre data-lang=\"powershell\"><code>cd client-windows\r\ndotnet build MoliSync.Client.sln -c Release\r\ndotnet test MoliSync.Client.sln -c Release\r\ndotnet publish src/MoliSync.Client/MoliSync.Client.csproj -c Release -r win-x64 -o publish</code></pre>\r\n\r\n<h2 id=\"certificates\">证书</h2>\r\n<p>客户端从 Windows 个人证书存储读取证书与私钥，不会导出到应用文件。若服务端使用私有 CA，请先把 CA 导入一次到“受信任的根证书颁发机构”。</p>\r\n\r\n<h2 id=\"features\">能力</h2>\r\n<ul>\r\n  <li>文字、图片、文件三栏，支持 Range 断点续传。</li>\r\n  <li>图片缩略图与查看器。</li>\r\n  <li>P2P 收发、在线设备与 LAN/VPN 地址。</li>\r\n  <li>数据目录迁移与开机自启。</li>\r\n</ul>\r\n<p>运行 <code>publish\\MoliSync.Client.exe</code>，填入你的 HTTPS 服务器地址。</p>\r\n\r\n<h2 id=\"shared\">共同行为</h2>\r\n<p>15 MiB 阈值、49 字节帧、一次性会话票据与“只有发送者能删除”与 Android 共用。参见<a href=\"./clients.html#shared\">客户端共同行为</a>或完整的 <a href=\"https://github.com/Molirain/Moli_Sync/blob/master/client-windows/README.md\" target=\"_blank\" rel=\"noopener\">client-windows 指南</a>。</p>"
+      },
+      "android": {
+        "title": "Android 客户端",
+        "docTitle": "Android 客户端 — MoliSync 文档",
+        "desc": "构建 Kotlin Android 客户端，配置 KeyChain 证书与 MediaStore 归档。",
+        "body": "<p class=\"docs-lead\">Android 客户端是一个面向 Android 8.0 / API 26 及以上版本的 Kotlin 应用。它通过 KeyChain 获取客户端证书，强制 HTTPS，并通过 MediaStore 归档接收的文件。</p>\r\n\r\n<h2 id=\"requirements\">环境要求</h2>\r\n<ul>\r\n  <li>Android 8.0 / API 26 或更高。</li>\r\n  <li>JDK 17+、Android SDK Platform 35 与 Build-Tools 35.0.0。</li>\r\n</ul>\r\n\r\n<h2 id=\"build\">构建</h2>\r\n<pre data-lang=\"sh\"><code>cd client-android\r\n./gradlew :app:assembleDebug\r\n./gradlew :app:testDebugUnitTest\r\n./gradlew :app:lintDebug</code></pre>\r\n<p>Windows 下请使用 <code>gradlew.bat</code>。</p>\r\n\r\n<h2 id=\"certificates\">证书与传输</h2>\r\n<p>客户端通过 KeyChain 获取证书与私钥；强制 HTTPS，禁用明文流量与 HTTP 重定向；打包 <code>molisync_ca.crt</code> 时会固定该私有 CA。</p>\r\n\r\n<h2 id=\"features\">能力</h2>\r\n<ul>\r\n  <li>系统分享与流式发送。</li>\r\n  <li>P2P 收发与前台数据同步服务。</li>\r\n  <li>MediaStore 归档：<code>Pictures/MoliSync</code> 与 <code>Download/MoliSync</code>。</li>\r\n  <li>可在运行时调整 <code>5–50 MiB</code> 的 P2P 阈值。</li>\r\n</ul>\r\n\r\n<h2 id=\"shared\">共同行为</h2>\r\n<p>15 MiB 阈值、49 字节帧、一次性会话票据与“只有发送者能删除”与 Windows 共用。参见<a href=\"./clients.html#shared\">客户端共同行为</a>或完整的 <a href=\"https://github.com/Molirain/Moli_Sync/blob/master/client-android/README.md\" target=\"_blank\" rel=\"noopener\">client-android 指南</a>。</p>"
+      },
+      "protocol": {
+        "title": "协议与数据面",
+        "docTitle": "协议与数据面 — MoliSync 文档",
+        "desc": "控制面端点、一次性票据、300 ms 候选探测、49 字节帧与零落盘中继。",
+        "body": "<p class=\"docs-lead\">线上协议分为两层：一组精简的 HTTP/WebSocket 控制面，以及一条流式数据面。<code>proto/sync.proto</code> 与 JSON 线上格式保持一致。</p>\r\n\r\n<h2 id=\"endpoints\">控制面端点</h2>\r\n<table>\r\n  <thead>\r\n    <tr><th>端点</th><th>作用</th></tr>\r\n  </thead>\r\n  <tbody>\r\n    <tr><td><code>GET /api/v1/records</code></td><td>拉取记录，支持 <code>kind</code>、<code>limit</code> 与 <code>before</code>。</td></tr>\r\n    <tr><td><code>POST /api/v1/records/text</code></td><td>保存文字记录并广播。</td></tr>\r\n    <tr><td><code>POST /api/v1/records/blob</code></td><td>流式上传图片/文件，携带 <code>kind</code>、<code>name</code>、<code>mime</code> 与可选的 <code>X-Blake3</code>。</td></tr>\r\n    <tr><td><code>GET /api/v1/blobs/{id}</code></td><td>下载 blob，支持 HTTP Range。</td></tr>\r\n    <tr><td><code>DELETE /api/v1/records/{id}</code></td><td>删除自己的记录与 blob。</td></tr>\r\n    <tr><td><code>GET /api/v1/relay/{session_id}</code></td><td>使用 <code>X-Session-Ticket</code> 中继字节流；连接被劫持后双向转发。</td></tr>\r\n  </tbody>\r\n</table>\r\n\r\n<h2 id=\"p2p-session\">P2P 会话</h2>\r\n<ol>\r\n  <li>控制面给两端各签发一张一次性 <code>32 字节</code> 票据，并下发候选地址池。</li>\r\n  <li>双方用系统证书完成双向 TLS。</li>\r\n  <li>接收方按 <code>300 ms</code> 一档并发探测 LAN/VPN 候选。</li>\r\n  <li>直连成功后传输固定 <code>49 字节</code> 帧。</li>\r\n  <li><code>1.2 秒</code>内无人应答时，服务端用 <code>io.Copy</code> 中继同一会话；<code>15 秒</code>配对超时。</li>\r\n</ol>\r\n\r\n<div class=\"callout\">\r\n  <span class=\"callout-label\">注意</span>\r\n  <p>中继只做透明字节转发。端到端保护仍在两端之间，服务端不会把流转写进磁盘。</p>\r\n</div>\r\n\r\n<h2 id=\"blobs\">Blob 与记录</h2>\r\n<ul>\r\n  <li><code>POST /api/v1/records/blob</code> 流式处理请求体，不把整个文件读进内存。</li>\r\n  <li><code>GET /api/v1/blobs/{id}</code> 在两端都支持 Range 续传。</li>\r\n  <li>文字上限 <code>64 KiB</code>，存入 SQLite。</li>\r\n  <li>删除仅限所有者，没有管理员覆盖。</li>\r\n</ul>\r\n\r\n<h2 id=\"frames\">帧格式</h2>\r\n<p>数据面使用固定 <code>49 字节</code> 帧；Android 额外携带 BLAKE3 校验。中继复用同一套帧流，因此客户端无法从负载判断字节是直连还是经服务端转发。</p>\r\n<p>参考：<a href=\"https://github.com/Molirain/Moli_Sync/blob/master/proto/sync.proto\" target=\"_blank\" rel=\"noopener\">proto/sync.proto</a>。</p>"
+      },
+      "operations": {
+        "title": "运维与安全",
+        "docTitle": "运维与安全 — MoliSync 文档",
+        "desc": "备份、日志、加固、升级，以及 MoliSync 当前的限制。",
+        "body": "<p class=\"docs-lead\">把控制面当作有状态服务来运维：一个数据卷、一个窄网络，以及一个独占信任边界的反向代理。</p>\r\n\r\n<h2 id=\"data\">数据与备份</h2>\r\n<ul>\r\n  <li><code>molisync-data</code> 卷保存 SQLite 元数据与 <code>blobs/</code> 目录。</li>\r\n  <li>记录不会自动过期，目前也没有配额。</li>\r\n  <li>只有发送者能删除记录。</li>\r\n  <li>备份时请同时复制数据库与 blob 目录，最好在服务停止或静默时进行。</li>\r\n</ul>\r\n\r\n<h2 id=\"logs\">日志与健康检查</h2>\r\n<p><code>MOLISYNC_LOG_LEVEL</code> 支持 <code>debug</code>、<code>info</code>、<code>warn</code>、<code>error</code>；<code>MOLISYNC_LOG_FORMAT</code> 可选 <code>json</code> 或 <code>text</code>。镜像内没有 curl，因此容器通过服务端二进制探测 <code>/healthz</code>。</p>\r\n\r\n<h2 id=\"hardening\">加固清单</h2>\r\n<ul>\r\n  <li>容器以 <code>nonroot</code> 运行，根文件系统只读，不添加 capabilities，并启用 <code>no-new-privileges</code>。</li>\r\n  <li>只有代理加入 <code>molisync-internal</code>；<code>9520</code> 端口不对外发布。</li>\r\n  <li><code>MOLISYNC_PROXY_TRUSTED_CIDRS</code> 尽量收紧。</li>\r\n  <li>客户端私钥留在操作系统证书存储中。</li>\r\n  <li>Android 强制 HTTPS，并支持固定私有 CA。</li>\r\n</ul>\r\n\r\n<h2 id=\"upgrades\">升级与版本号</h2>\r\n<pre data-lang=\"sh\"><code>docker compose pull\r\ndocker compose up -d\r\ndocker compose ps</code></pre>\r\n<p>三端共享「主.次」版本号，补丁号各自独立。发布标签按组件命名：<code>server-v0.5.1</code> 只构建服务端镜像，<code>desktop-v0.5.1</code> 只发布便携版，<code>android-v0.5.1</code> 只发布 APK；没有全局 <code>v*</code> 标签，因此修一端不会连带发布全量。</p>\r\n<p>镜像标签包括 <code>latest</code>、<code>X.Y.Z</code> 与 <code>sha-&lt;commit&gt;</code>。需要可复现的发布时请固定版本标签，并在升级前备份数据卷。服务端每 12 小时自查一次 <code>server-v</code> 发布，并通过 <code>/api/v1/me</code> 把结果转达给客户端，由客户端提示“服务端需要升级”。</p>\r\n\r\n<h2 id=\"stats\">使用统计</h2>\r\n<ul>\r\n  <li>口径：每台设备**首次**连上服务端时上报一次，计数 +1，之后重连不再上报；没有周期心跳，也没有客户端埋点。</li>\r\n  <li>事件只含「部署内唯一的哈希 ID + 平台 + 版本」。该 ID 由「部署 ID + 盐化设备键」派生，跨部署不可关联，Worker 拿不到证书指纹、设备名或 IP。</li>\r\n  <li>计数端是项目自建的公开端点 <code>statistics-api.molirain.com</code>（Cloudflare Worker + D1，部署在独立仓库）。</li>\r\n  <li><code>GET /stats</code> 需要 <code>ADMIN_TOKEN</code>，未配置时返回 503；<code>?format=text</code> 给出安装数、部署数与平台分布。</li>\r\n  <li>「人数」用 <code>deployments</code> 近似（一人一套自建服务器）；<code>installations</code> 是设备数，同一人多端会偏高。</li>\r\n  <li><code>telemetry.endpoint</code> 默认为空即关闭；<code>MOLISYNC_TELEMETRY_ENABLED=false</code> 可彻底禁用。</li>\r\n</ul>\r\n\r\n<h2 id=\"limits\">已知限制</h2>\r\n<ul>\r\n  <li>没有自动清理，也没有配额。</li>\r\n  <li>升级提示依赖 GitHub Releases 的匿名读取，仓库必须公开，否则客户端静默跳过。</li>\r\n  <li>端到端 P2P 仍需真实网络回归测试。</li>\r\n  <li>仓库尚未声明全局许可证。</li>\r\n</ul>"
+      }
+    }
+  }
+});

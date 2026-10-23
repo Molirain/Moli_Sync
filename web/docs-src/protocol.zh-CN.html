@@ -1,0 +1,42 @@
+<p class="docs-lead">线上协议分为两层：一组精简的 HTTP/WebSocket 控制面，以及一条流式数据面。<code>proto/sync.proto</code> 与 JSON 线上格式保持一致。</p>
+
+<h2 id="endpoints">控制面端点</h2>
+<table>
+  <thead>
+    <tr><th>端点</th><th>作用</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>GET /api/v1/records</code></td><td>拉取记录，支持 <code>kind</code>、<code>limit</code> 与 <code>before</code>。</td></tr>
+    <tr><td><code>POST /api/v1/records/text</code></td><td>保存文字记录并广播。</td></tr>
+    <tr><td><code>POST /api/v1/records/blob</code></td><td>流式上传图片/文件，携带 <code>kind</code>、<code>name</code>、<code>mime</code> 与可选的 <code>X-Blake3</code>。</td></tr>
+    <tr><td><code>GET /api/v1/blobs/{id}</code></td><td>下载 blob，支持 HTTP Range。</td></tr>
+    <tr><td><code>DELETE /api/v1/records/{id}</code></td><td>删除自己的记录与 blob。</td></tr>
+    <tr><td><code>GET /api/v1/relay/{session_id}</code></td><td>使用 <code>X-Session-Ticket</code> 中继字节流；连接被劫持后双向转发。</td></tr>
+  </tbody>
+</table>
+
+<h2 id="p2p-session">P2P 会话</h2>
+<ol>
+  <li>控制面给两端各签发一张一次性 <code>32 字节</code> 票据，并下发候选地址池。</li>
+  <li>双方用系统证书完成双向 TLS。</li>
+  <li>接收方按 <code>300 ms</code> 一档并发探测 LAN/VPN 候选。</li>
+  <li>直连成功后传输固定 <code>49 字节</code> 帧。</li>
+  <li><code>1.2 秒</code>内无人应答时，服务端用 <code>io.Copy</code> 中继同一会话；<code>15 秒</code>配对超时。</li>
+</ol>
+
+<div class="callout">
+  <span class="callout-label">注意</span>
+  <p>中继只做透明字节转发。端到端保护仍在两端之间，服务端不会把流转写进磁盘。</p>
+</div>
+
+<h2 id="blobs">Blob 与记录</h2>
+<ul>
+  <li><code>POST /api/v1/records/blob</code> 流式处理请求体，不把整个文件读进内存。</li>
+  <li><code>GET /api/v1/blobs/{id}</code> 在两端都支持 Range 续传。</li>
+  <li>文字上限 <code>64 KiB</code>，存入 SQLite。</li>
+  <li>删除仅限所有者，没有管理员覆盖。</li>
+</ul>
+
+<h2 id="frames">帧格式</h2>
+<p>数据面使用固定 <code>49 字节</code> 帧；Android 额外携带 BLAKE3 校验。中继复用同一套帧流，因此客户端无法从负载判断字节是直连还是经服务端转发。</p>
+<p>参考：<a href="https://github.com/Molirain/Moli_Sync/blob/master/proto/sync.proto" target="_blank" rel="noopener">proto/sync.proto</a>。</p>

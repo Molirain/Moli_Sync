@@ -1,0 +1,17 @@
+<p class="docs-lead">两个客户端共用同一套带版本的 HTTP/WebSocket 协议，并使用操作系统证书存储中的证书。服务器地址始终是 HTTPS。选择客户端查看构建与连接步骤。</p>
+
+<h2 id="windows">Windows</h2>
+<p>.NET 8 桌面客户端，发布为 <code>win-x64</code>，从 Windows 个人证书存储读取密钥，并支持 NativeAOT。</p>
+<p><a href="./windows.html">构建并连接 Windows 客户端 →</a></p>
+
+<h2 id="android">Android</h2>
+<p>Kotlin 客户端，面向 Android 8.0 / API 26 及以上，通过 KeyChain 获取身份，并通过 MediaStore 归档下载。</p>
+<p><a href="./android.html">构建并连接 Android 客户端 →</a></p>
+
+<h2 id="shared">共同行为</h2>
+<ul>
+  <li>默认阈值 <code>15 MiB</code>；超过后只能 P2P。</li>
+  <li>固定 <code>49 字节</code> 帧与一次性会话票据。</li>
+  <li>只有发送者能删除记录。</li>
+</ul>
+<p>完整客户端指南：<a href="https://github.com/Molirain/Moli_Sync/blob/master/client-windows/README.md" target="_blank" rel="noopener">Windows</a> · <a href="https://github.com/Molirain/Moli_Sync/blob/master/client-android/README.md" target="_blank" rel="noopener">Android</a>。</p>

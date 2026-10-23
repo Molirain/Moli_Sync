@@ -1,0 +1,28 @@
+<p class="docs-lead">The Windows client is a .NET 8 desktop app published for <code>win-x64</code>. It reads its certificate and private key from the Windows personal certificate store and connects to your HTTPS server.</p>
+
+<h2 id="requirements">Requirements</h2>
+<ul>
+  <li>Windows 10 or 11 and the .NET 8 SDK.</li>
+  <li>NativeAOT publishing additionally requires the Visual C++ build tools.</li>
+</ul>
+
+<h2 id="build">Build and publish</h2>
+<pre data-lang="powershell"><code>cd client-windows
+dotnet build MoliSync.Client.sln -c Release
+dotnet test MoliSync.Client.sln -c Release
+dotnet publish src/MoliSync.Client/MoliSync.Client.csproj -c Release -r win-x64 -o publish</code></pre>
+
+<h2 id="certificates">Certificates</h2>
+<p>The client reads its certificate and private key from the Windows personal certificate store; nothing is exported into application files. If your server uses a private CA, import it once into <em>Trusted Root Certification Authorities</em>.</p>
+
+<h2 id="features">What you get</h2>
+<ul>
+  <li>Text, image and file tabs with Range download resume.</li>
+  <li>Image thumbnails and a viewer.</li>
+  <li>P2P send and receive, online devices and LAN/VPN addresses.</li>
+  <li>Data-directory migration and autostart.</li>
+</ul>
+<p>Run <code>publish\MoliSync.Client.exe</code> and enter your HTTPS server URL.</p>
+
+<h2 id="shared">Shared behavior</h2>
+<p>The 15 MiB threshold, 49-byte frames, single-use session tickets and sender-only deletion are shared with Android. See <a href="./clients.html#shared">shared client behavior</a> or the full <a href="https://github.com/Molirain/Moli_Sync/blob/master/client-windows/README.md" target="_blank" rel="noopener">client-windows guide</a>.</p>

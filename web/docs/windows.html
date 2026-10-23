@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en" data-title-key="manual.pages.windows.docTitle" data-description-key="manual.pages.windows.desc">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Windows client — MoliSync Docs</title>
+  <meta name="description" content="Build, publish with NativeAOT and connect the .NET 8 Windows client.">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#202425">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Windows client — MoliSync Docs">
+  <meta property="og:description" content="Build, publish with NativeAOT and connect the .NET 8 Windows client.">
+  <meta property="og:image" content="../assets/branding/molisync-icon-512.png">
+  <link rel="icon" href="../assets/branding/molisync-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../assets/branding/molisync-icon-512.png">
+  <link rel="stylesheet" href="../assets/css/site.css">
+  <script defer src="../assets/js/i18n.js"></script>
+  <script defer src="../assets/i18n/en.js"></script>
+  <script defer src="../assets/i18n/zh-CN.js"></script>
+  <script defer src="../assets/i18n/docs-en.js"></script>
+  <script defer src="../assets/i18n/docs-zh-CN.js"></script>
+</head>
+<body id="top">
+  <a class="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:border focus:border-accent focus:bg-ink focus:px-3 focus:py-2 focus:text-[12px]" href="#main" data-i18n="a11y.skip">Skip to content</a>
+  <header class="sticky top-0 z-40 border-b border-line bg-ink">
+    <div class="mx-auto flex h-14 max-w-page items-center gap-6 px-5 sm:px-8">
+      <a class="flex shrink-0 items-center gap-2.5" href="../index.html" aria-label="MoliSync">
+        <img class="h-6 w-6 rounded-[3px] border border-line" src="../assets/branding/molisync-icon.svg" width="24" height="24" alt="">
+        <span class="text-[13px] font-medium tracking-[-0.01em]">MoliSync</span>
+      </a>
+      <nav class="hidden items-center gap-1 md:flex" aria-label="Primary">
+        <a class="px-2 py-1 text-[12px] text-muted transition-colors duration-150 ease-out hover:text-fg" href="../index.html#features" data-i18n="nav.features">Features</a>
+        <a class="px-2 py-1 text-[12px] text-muted transition-colors duration-150 ease-out hover:text-fg" href="../index.html#deploy" data-i18n="nav.deploy">Deploy</a>
+        <a class="px-2 py-1 text-[12px] text-fg" href="./index.html" data-i18n="nav.docs" aria-current="page">Docs</a>
+      </nav>
+      <div class="ml-auto flex items-center gap-3">
+        <div class="flex items-center" id="lang-switch" role="group" aria-label="Language"></div>
+        <a class="hidden h-7 items-center gap-1 border border-line px-2.5 text-[11px] text-fg transition-colors duration-150 ease-out hover:border-muted sm:inline-flex" href="https://github.com/Molirain/Moli_Sync" target="_blank" rel="noopener">
+          <span data-i18n="nav.github">GitHub</span><span class="text-muted" aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="mx-auto max-w-page px-5 sm:px-8">
+      <div class="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_200px]">
+        <aside class="hidden border-r border-line py-10 pr-6 lg:sticky lg:top-14 lg:block lg:max-h-[calc(100vh-3.5rem)] lg:self-start lg:overflow-y-auto">
+          <p class="mono-label mb-4" data-i18n="manual.ui.docs">Documentation</p>
+          <nav class="space-y-7" aria-label="Documentation" data-i18n-attr="aria-label:manual.ui.docs">
+            <div>
+        <p class="mono-label mb-2" data-i18n="manual.group.start">Get started</p>
+        <a class="docs-link" href="./index.html" data-i18n="manual.nav.overview">Overview</a>
+          <a class="docs-link" href="./server.html" data-i18n="manual.nav.server">Server</a>
+          <a class="docs-link" href="./proxy.html" data-i18n="manual.nav.proxy">Reverse proxy</a>
+      </div>
+      <div>
+        <p class="mono-label mb-2" data-i18n="manual.group.clients">Clients</p>
+        <a class="docs-link" href="./clients.html" data-i18n="manual.nav.clients">Choose a client</a>
+          <a class="docs-link" href="./windows.html" aria-current="page" data-i18n="manual.nav.windows">Windows</a>
+          <a class="docs-link" href="./android.html" data-i18n="manual.nav.android">Android</a>
+      </div>
+      <div>
+        <p class="mono-label mb-2" data-i18n="manual.group.reference">Reference</p>
+        <a class="docs-link" href="./protocol.html" data-i18n="manual.nav.protocol">Protocol</a>
+          <a class="docs-link" href="./operations.html" data-i18n="manual.nav.operations">Operations</a>
+      </div>
+          </nav>
+        </aside>
+
+        <div class="min-w-0 py-10 lg:px-10">
+          <details class="mb-8 border border-line lg:hidden">
+            <summary class="cursor-pointer px-3 py-2.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted" data-i18n="manual.ui.menu">Documentation menu</summary>
+            <div class="border-t border-line px-3 py-3">
+              <nav class="grid grid-cols-2 gap-5" aria-label="Documentation" data-i18n-attr="aria-label:manual.ui.docs">
+                <div>
+        <p class="mono-label mb-2" data-i18n="manual.group.start">Get started</p>
+        <a class="docs-link" href="./index.html" data-i18n="manual.nav.overview">Overview</a>
+          <a class="docs-link" href="./server.html" data-i18n="manual.nav.server">Server</a>
+          <a class="docs-link" href="./proxy.html" data-i18n="manual.nav.proxy">Reverse proxy</a>
+      </div>
+      <div>
+        <p class="mono-label mb-2" data-i18n="manual.group.clients">Clients</p>
+        <a class="docs-link" href="./clients.html" data-i18n="manual.nav.clients">Choose a client</a>
+          <a class="docs-link" href="./windows.html" aria-current="page" data-i18n="manual.nav.windows">Windows</a>
+          <a class="docs-link" href="./android.html" data-i18n="manual.nav.android">Android</a>
+      </div>
+      <div>
+        <p class="mono-label mb-2" data-i18n="manual.group.reference">Reference</p>
+        <a class="docs-link" href="./protocol.html" data-i18n="manual.nav.protocol">Protocol</a>
+          <a class="docs-link" href="./operations.html" data-i18n="manual.nav.operations">Operations</a>
+      </div>
+              </nav>
+            </div>
+          </details>
+
+          <div class="flex flex-wrap items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[0.08em] text-faint">
+            <a class="transition-colors duration-150 ease-out hover:text-fg" href="./index.html" data-i18n="manual.ui.docs">Documentation</a>
+            <span class="text-line" aria-hidden="true">/</span>
+            <span data-i18n="manual.nav.windows">Windows</span>
+          </div>
+
+          <h1 class="mt-4 text-[30px] font-medium leading-tight tracking-[-0.03em] text-fg" data-i18n="manual.pages.windows.title">Windows client</h1>
+          <div class="docs-prose mt-6" data-i18n-html="manual.pages.windows.body"><p class="docs-lead">The Windows client is a .NET 8 desktop app published for <code>win-x64</code>. It reads its certificate and private key from the Windows personal certificate store and connects to your HTTPS server.</p>
+
+<h2 id="requirements">Requirements</h2>
+<ul>
+  <li>Windows 10 or 11 and the .NET 8 SDK.</li>
+  <li>NativeAOT publishing additionally requires the Visual C++ build tools.</li>
+</ul>
+
+<h2 id="build">Build and publish</h2>
+<pre data-lang="powershell"><code>cd client-windows
+dotnet build MoliSync.Client.sln -c Release
+dotnet test MoliSync.Client.sln -c Release
+dotnet publish src/MoliSync.Client/MoliSync.Client.csproj -c Release -r win-x64 -o publish</code></pre>
+
+<h2 id="certificates">Certificates</h2>
+<p>The client reads its certificate and private key from the Windows personal certificate store; nothing is exported into application files. If your server uses a private CA, import it once into <em>Trusted Root Certification Authorities</em>.</p>
+
+<h2 id="features">What you get</h2>
+<ul>
+  <li>Text, image and file tabs with Range download resume.</li>
+  <li>Image thumbnails and a viewer.</li>
+  <li>P2P send and receive, online devices and LAN/VPN addresses.</li>
+  <li>Data-directory migration and autostart.</li>
+</ul>
+<p>Run <code>publish\MoliSync.Client.exe</code> and enter your HTTPS server URL.</p>
+
+<h2 id="shared">Shared behavior</h2>
+<p>The 15 MiB threshold, 49-byte frames, single-use session tickets and sender-only deletion are shared with Android. See <a href="./clients.html#shared">shared client behavior</a> or the full <a href="https://github.com/Molirain/Moli_Sync/blob/master/client-windows/README.md" target="_blank" rel="noopener">client-windows guide</a>.</p></div>
+
+          <nav class="mt-14 grid gap-3 border-t border-line pt-6 sm:grid-cols-2" aria-label="Pagination" data-i18n-attr="aria-label:manual.ui.pagination">
+          <a class="border border-line px-4 py-3 transition-colors duration-150 ease-out hover:bg-panel" href="./clients.html">
+            <span class="mono-label" data-i18n="manual.ui.previous">Previous</span>
+            <span class="mt-1 block text-[13px] text-fg" data-i18n="manual.nav.clients">Choose a client</span>
+          </a>
+          <a class="border border-line px-4 py-3 transition-colors duration-150 ease-out hover:bg-panel sm:text-right" href="./android.html">
+            <span class="mono-label" data-i18n="manual.ui.next">Next</span>
+            <span class="mt-1 block text-[13px] text-fg" data-i18n="manual.nav.android">Android</span>
+          </a>
+        </nav>
+        </div>
+
+        <aside class="hidden border-l border-line py-10 pl-6 xl:sticky xl:top-14 xl:block xl:max-h-[calc(100vh-3.5rem)] xl:self-start xl:overflow-y-auto">
+          <p class="mono-label" data-i18n="manual.ui.onThisPage">On this page</p>
+          <nav id="page-toc" class="mt-3" aria-label="On this page" data-i18n-attr="aria-label:manual.ui.onThisPage"></nav>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-line">
+    <div class="mx-auto flex max-w-page flex-col gap-2 px-5 py-6 font-mono text-[9px] uppercase tracking-[0.08em] text-faint sm:flex-row sm:items-center sm:justify-between sm:px-8">
+      <span>© <span id="year">2026</span> MoliSync</span>
+      <span data-i18n="footer.license">No repository-wide license has been declared yet.</span>
+      <a class="link-quiet hover:text-accent" href="../privacy.html" data-i18n="footer.links.privacy">Privacy</a>
+      <a class="link-quiet hover:text-accent" href="../index.html" data-i18n="manual.ui.home">Home ↗</a>
+    </div>
+  </footer>
+
+  <script defer src="../assets/js/main.js"></script>
+  <script defer src="../assets/js/docs.js"></script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<p class="docs-lead">MoliSync 只信任来自配置网段的反向代理身份头。代理必须先校验证书、清除入站身份头，再写入新的校验结果。</p>
+
+<h2 id="trust-order">信任顺序</h2>
+<ol>
+  <li>终止 TLS，并请求客户端证书。</li>
+  <li>校验证书链，必要时检查吊销状态。</li>
+  <li>清除入站 <code>X-Client-*</code> 头。</li>
+  <li>用代理自身的变量写入校验结果、指纹与 Subject。</li>
+  <li>转发 WebSocket Upgrade，并关闭请求/响应缓冲。</li>
+</ol>
+
+<h2 id="nginx">Nginx 示例</h2>
+<pre data-lang="nginx"><code>proxy_http_version 1.1;
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection $connection_upgrade;
+proxy_request_buffering off;
+proxy_buffering off;
+
+proxy_set_header X-Client-Verify $ssl_client_verify;
+proxy_set_header X-Client-Fingerprint $ssl_client_fingerprint;
+proxy_set_header X-Client-DN $ssl_client_s_dn;</code></pre>
+
+<h2 id="map-headers">映射头名称</h2>
+<p>告诉控制面应该读取哪些头：</p>
+<table>
+  <thead>
+    <tr><th>变量</th><th>示例值</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>MOLISYNC_PROXY_VERIFY_HEADER</code></td><td><code>X-Client-Verify</code></td></tr>
+    <tr><td><code>MOLISYNC_PROXY_FINGERPRINT_HEADER</code></td><td><code>X-Client-Fingerprint</code></td></tr>
+    <tr><td><code>MOLISYNC_PROXY_DN_HEADER</code></td><td><code>X-Client-DN</code></td></tr>
+  </tbody>
+</table>
+
+<h2 id="network">网络边界</h2>
+<p>只有代理与控制面加入 <code>molisync-internal</code>（示例子网为 <code>172.28.0.0/24</code>）。<code>MOLISYNC_PROXY_TRUSTED_CIDRS</code> 应尽量收紧到该网络。</p>
+
+<div class="callout">
+  <span class="callout-label">警告</span>
+  <p>能进入受信网络的任何进程都能伪造身份头。不要把 Go 服务直接暴露到公网，也不要让客户端加入该网络。</p>
+</div>
+
+<h2 id="checklist">检查清单</h2>
+<ul>
+  <li>客户端证书校验已开启，并用受信证书验证过。</li>
+  <li>边缘已清除入站 <code>X-Client-*</code> 头。</li>
+  <li><code>MOLISYNC_PROXY_TRUSTED_CIDRS</code> 只匹配代理网络。</li>
+  <li>WebSocket Upgrade 与流式转发（无缓冲）已验证。</li>
+  <li>健康检查仍指向真实监听端口。</li>
+</ul>

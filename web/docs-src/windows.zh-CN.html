@@ -1,0 +1,28 @@
+<p class="docs-lead">Windows 客户端是一个发布为 <code>win-x64</code> 的 .NET 8 桌面应用。它从 Windows 个人证书存储读取证书与私钥，并连接你的 HTTPS 服务器。</p>
+
+<h2 id="requirements">环境要求</h2>
+<ul>
+  <li>Windows 10 或 11，以及 .NET 8 SDK。</li>
+  <li>使用 NativeAOT 发布时还需要 Visual C++ 构建工具。</li>
+</ul>
+
+<h2 id="build">构建与发布</h2>
+<pre data-lang="powershell"><code>cd client-windows
+dotnet build MoliSync.Client.sln -c Release
+dotnet test MoliSync.Client.sln -c Release
+dotnet publish src/MoliSync.Client/MoliSync.Client.csproj -c Release -r win-x64 -o publish</code></pre>
+
+<h2 id="certificates">证书</h2>
+<p>客户端从 Windows 个人证书存储读取证书与私钥，不会导出到应用文件。若服务端使用私有 CA，请先把 CA 导入一次到“受信任的根证书颁发机构”。</p>
+
+<h2 id="features">能力</h2>
+<ul>
+  <li>文字、图片、文件三栏，支持 Range 断点续传。</li>
+  <li>图片缩略图与查看器。</li>
+  <li>P2P 收发、在线设备与 LAN/VPN 地址。</li>
+  <li>数据目录迁移与开机自启。</li>
+</ul>
+<p>运行 <code>publish\MoliSync.Client.exe</code>，填入你的 HTTPS 服务器地址。</p>
+
+<h2 id="shared">共同行为</h2>
+<p>15 MiB 阈值、49 字节帧、一次性会话票据与“只有发送者能删除”与 Android 共用。参见<a href="./clients.html#shared">客户端共同行为</a>或完整的 <a href="https://github.com/Molirain/Moli_Sync/blob/master/client-windows/README.md" target="_blank" rel="noopener">client-windows 指南</a>。</p>

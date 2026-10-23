@@ -1,0 +1,46 @@
+<p class="docs-lead">Run the control plane like a stateful service: one volume, a narrow network and a proxy that owns the trust boundary.</p>
+
+<h2 id="data">Data and backup</h2>
+<ul>
+  <li><code>molisync-data</code> holds SQLite metadata and the <code>blobs/</code> directory.</li>
+  <li>Records do not expire automatically, and there is no quota yet.</li>
+  <li>Only the sender can delete a record.</li>
+  <li>Back up the database and blobs together, ideally while the service is stopped or quiesced.</li>
+</ul>
+
+<h2 id="logs">Logs and health</h2>
+<p><code>MOLISYNC_LOG_LEVEL</code> accepts <code>debug</code>, <code>info</code>, <code>warn</code> and <code>error</code>; <code>MOLISYNC_LOG_FORMAT</code> selects <code>json</code> or <code>text</code>. The container probes <code>/healthz</code> through the server binary because the image has no curl.</p>
+
+<h2 id="hardening">Hardening checklist</h2>
+<ul>
+  <li>Container runs <code>nonroot</code> with a read-only root filesystem, no added capabilities and <code>no-new-privileges</code>.</li>
+  <li>Only the proxy joins <code>molisync-internal</code>; port <code>9520</code> stays unpublished.</li>
+  <li><code>MOLISYNC_PROXY_TRUSTED_CIDRS</code> is as narrow as possible.</li>
+  <li>Client private keys stay in the operating system certificate stores.</li>
+  <li>Android requires HTTPS and can pin a private CA.</li>
+</ul>
+
+<h2 id="upgrades">Upgrades and versions</h2>
+<pre data-lang="sh"><code>docker compose pull
+docker compose up -d
+docker compose ps</code></pre>
+<p>Components share a MAJOR.MINOR baseline while each keeps its own PATCH number. Release tags are per component: <code>server-v0.5.1</code> builds only the server image, <code>desktop-v0.5.1</code> publishes only the portable archive and <code>android-v0.5.1</code> only the APK. There is no umbrella <code>v*</code> tag, so fixing one client never publishes everything.</p>
+<p>Images are tagged <code>latest</code>, <code>X.Y.Z</code> and <code>sha-&lt;commit&gt;</code>. Pin a version tag if you need reproducible rollouts, and back up the volume before upgrading. The server checks the <code>server-v</code> namespace every 12 hours and forwards the result through <code>/api/v1/me</code>, which is how clients warn that the server itself is behind.</p>
+
+<h2 id="stats">Usage statistics</h2>
+<ul>
+  <li>Rule: a device reports once, the <strong>first</strong> time it connects; reconnects send nothing. No periodic heartbeat, no client-side analytics.</li>
+  <li>The event holds only a deployment-scoped hashed id, the platform and the version. The id derives from "deployment id + salted device key", so it is unlinkable across deployments and the Worker never sees a fingerprint, name or IP.</li>
+  <li>The counter is the project-operated public endpoint <code>statistics-api.molirain.com</code> (Cloudflare Worker + D1, deployed from a separate repository).</li>
+  <li><code>GET /stats</code> requires <code>ADMIN_TOKEN</code> and returns 503 when it is unset; <code>?format=text</code> prints installations, deployments and the platform split.</li>
+  <li>Use <code>deployments</code> as the headcount (one server per owner); <code>installations</code> counts devices, so one person with two clients inflates it.</li>
+  <li><code>telemetry.endpoint</code> is empty by default, which keeps reporting off; <code>MOLISYNC_TELEMETRY_ENABLED=false</code> disables it entirely.</li>
+</ul>
+
+<h2 id="limits">Known limits</h2>
+<ul>
+  <li>No automatic record cleanup and no quota.</li>
+  <li>Update prompts read GitHub Releases anonymously, so the repository must be public; otherwise clients stay silent.</li>
+  <li>End-to-end P2P still needs real-network regression.</li>
+  <li>No repository-wide license has been declared.</li>
+</ul>

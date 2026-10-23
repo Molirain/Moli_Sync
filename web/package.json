@@ -1,0 +1,13 @@
+{
+  "name": "molisync-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-docs.mjs && tailwindcss -i ./src/tailwind.css -o ./assets/css/site.css --minify",
+    "docs": "node scripts/build-docs.mjs",
+    "dev": "tailwindcss -i ./src/tailwind.css -o ./assets/css/site.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

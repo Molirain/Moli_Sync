@@ -1,0 +1,28 @@
+<p class="docs-lead">The Android client is a Kotlin app for Android 8.0 / API 26 and newer. It gets its client certificate from KeyChain, requires HTTPS, and archives received files through MediaStore.</p>
+
+<h2 id="requirements">Requirements</h2>
+<ul>
+  <li>Android 8.0 / API 26 or newer.</li>
+  <li>JDK 17+, Android SDK Platform 35 and Build-Tools 35.0.0.</li>
+</ul>
+
+<h2 id="build">Build</h2>
+<pre data-lang="sh"><code>cd client-android
+./gradlew :app:assembleDebug
+./gradlew :app:testDebugUnitTest
+./gradlew :app:lintDebug</code></pre>
+<p>On Windows, use <code>gradlew.bat</code>.</p>
+
+<h2 id="certificates">Certificates and transport</h2>
+<p>KeyChain provides the client certificate and private key. The client requires HTTPS, disables cleartext traffic and HTTP redirects, and uses a pinned private CA when <code>molisync_ca.crt</code> is packaged.</p>
+
+<h2 id="features">What you get</h2>
+<ul>
+  <li>System share intents and a streaming sender.</li>
+  <li>P2P send and receive plus a foreground sync service.</li>
+  <li>MediaStore archiving: <code>Pictures/MoliSync</code> and <code>Download/MoliSync</code>.</li>
+  <li>Adjustable <code>5–50 MiB</code> P2P threshold.</li>
+</ul>
+
+<h2 id="shared">Shared behavior</h2>
+<p>The 15 MiB threshold, 49-byte frames, single-use session tickets and sender-only deletion are shared with Windows. See <a href="./clients.html#shared">shared client behavior</a> or the full <a href="https://github.com/Molirain/Moli_Sync/blob/master/client-android/README.md" target="_blank" rel="noopener">client-android guide</a>.</p>

@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MoliSync — Self-hosted cross-device sync</title>
+  <meta name="description" content="Self-hosted cross-device transfer and sync. mTLS identity, 300 ms LAN/VPN candidate races, and a zero-disk relay at 1.2 s.">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#202425">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="MoliSync — Self-hosted cross-device sync">
+  <meta property="og:description" content="mTLS identity, 49-byte frames, and a zero-disk relay. One Go control plane, Windows and Android clients.">
+  <meta property="og:image" content="assets/branding/molisync-icon-512.png">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="assets/branding/molisync-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/branding/molisync-icon-512.png">
+  <link rel="stylesheet" href="assets/css/site.css">
+  <script defer src="assets/js/i18n.js"></script>
+  <script defer src="assets/i18n/en.js"></script>
+  <script defer src="assets/i18n/zh-CN.js"></script>
+</head>
+<body id="top">
+  <a class="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:border focus:border-accent focus:bg-ink focus:px-3 focus:py-2 focus:text-[12px]" href="#main" data-i18n="a11y.skip">Skip to content</a>
+
+  <header class="sticky top-0 z-40 border-b border-line bg-ink">
+    <div class="mx-auto flex h-14 max-w-page items-center gap-6 px-5 sm:px-8">
+      <a class="flex shrink-0 items-center gap-2.5" href="#top" aria-label="MoliSync">
+        <img class="h-6 w-6 rounded-[3px] border border-line" src="assets/branding/molisync-icon.svg" width="24" height="24" alt="">
+        <span class="text-[13px] font-medium tracking-[-0.01em]">MoliSync</span>
+      </a>
+
+      <nav class="hidden items-center gap-1 md:flex" aria-label="Primary">
+        <a class="px-2 py-1 text-[12px] text-muted transition-colors duration-150 ease-out hover:text-fg" href="#features" data-i18n="nav.features">Features</a>
+        <a class="px-2 py-1 text-[12px] text-muted transition-colors duration-150 ease-out hover:text-fg" href="#deploy" data-i18n="nav.deploy">Deploy</a>
+        <a class="px-2 py-1 text-[12px] text-muted transition-colors duration-150 ease-out hover:text-fg" href="docs/index.html" data-i18n="nav.docs">Docs</a>
+      </nav>
+
+      <div class="ml-auto flex items-center gap-3">
+        <div class="flex items-center" id="lang-switch" role="group" aria-label="Language"></div>
+        <a class="hidden h-7 items-center gap-1 border border-line px-2.5 text-[11px] text-fg transition-colors duration-150 ease-out hover:border-muted sm:inline-flex" href="https://github.com/Molirain/Moli_Sync" target="_blank" rel="noopener">
+          <span data-i18n="nav.github">GitHub</span><span class="text-muted" aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="border-b border-line">
+      <div class="mx-auto grid max-w-page gap-12 px-5 pb-14 pt-12 sm:px-8 lg:grid-cols-[0.98fr_1.02fr] lg:gap-14 lg:pb-20 lg:pt-20">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-x-2.5 gap-y-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+            <span class="h-1.5 w-1.5 bg-accent" aria-hidden="true"></span>
+            <span data-i18n="hero.kicker.selfHosted">Self-hosted</span>
+            <span class="text-line" aria-hidden="true">/</span>
+            <span data-i18n="hero.kicker.mtls">mTLS identity</span>
+            <span class="text-line" aria-hidden="true">/</span>
+            <span data-i18n="hero.kicker.p2p">P2P streaming</span>
+            <span class="ml-auto border border-line px-1.5 py-0.5 text-[9px] tracking-[0.08em] text-muted">v0.4.0</span>
+          </div>
+
+          <h1 class="hero-title mt-6 max-w-[34rem]" data-i18n-html="hero.title">Sync across devices.<br><span class="text-accent">On your own network.</span></h1>
+          <p class="mt-6 max-w-[35rem] text-[14px] leading-[1.75] text-muted sm:text-[15px]" data-i18n="hero.lead">One Go control plane, Windows and Android clients. The data path probes LAN/VPN candidates every 300 ms; if nothing answers by 1.2 s, the server relays the session with zero disk writes. Identity is the SHA-256 fingerprint of a client certificate verified at your proxy.</p>
+
+          <div class="mt-8 max-w-[35rem] scroll-mt-24 rounded-[4px] border border-line bg-deep" id="deploy">
+            <div class="flex items-stretch border-b border-line">
+              <div class="flex" role="tablist" aria-label="Install method" data-i18n-attr="aria-label:hero.cmd.tabs">
+                <button class="cmd-tab" type="button" role="tab" aria-selected="true" aria-controls="cmd-line" data-cmd-tab data-cmd="docker pull ghcr.io/molirain/molisync-server:latest">Docker</button>
+                <button class="cmd-tab" type="button" role="tab" aria-selected="false" aria-controls="cmd-line" data-cmd-tab data-cmd="cp docker-compose.example.yml docker-compose.yml &amp;&amp; docker compose up -d">Compose</button>
+              </div>
+              <button class="cmd-copy ml-auto" type="button" data-copy-target="#cmd-line" data-i18n="hero.cmd.copy" aria-live="polite">Copy</button>
+            </div>
+            <div class="flex items-start gap-2 px-4 py-3.5 font-mono text-[11.5px]">
+              <span class="select-none pt-0.5 text-accent" aria-hidden="true">$</span>
+              <code class="min-w-0 flex-1 whitespace-normal break-words" id="cmd-line">docker pull ghcr.io/molirain/molisync-server:latest</code>
+            </div>
+            <p class="border-t border-line px-4 py-2 font-mono text-[9px] uppercase tracking-[0.08em] text-faint" data-i18n="hero.cmd.note">Docker 24+ · run Compose from the repo root · :9520 stays private</p>
+          </div>
+
+          <div class="mt-4 flex max-w-[35rem] flex-col items-start gap-y-2 font-mono text-[9.5px] uppercase tracking-[0.06em] text-muted sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4">
+            <span data-i18n="hero.facts.arch">linux/amd64 · arm64</span>
+            <span class="hidden text-line sm:inline" aria-hidden="true">|</span>
+            <span data-i18n="hero.facts.runtime">nonroot · read-only</span>
+            <span class="hidden text-line sm:inline" aria-hidden="true">|</span>
+            <a class="link-quiet hover:text-accent" href="https://github.com/Molirain/Moli_Sync/releases" target="_blank" rel="noopener" data-i18n="hero.facts.releases">Releases ↗</a>
+          </div>
+        </div>
+
+        <figure class="min-w-0 w-full max-w-[560px] self-start overflow-hidden rounded-[4px] border border-line bg-deep lg:max-w-none lg:mt-1">
+  <div class="flex items-center justify-between gap-3 border-b border-line px-3 py-2">
+    <span class="mono-label" data-i18n="hero.diagram.heading">Data path</span>
+    <div class="flex items-center gap-1" role="tablist" aria-label="Data path mode" data-i18n-attr="aria-label:hero.path.tabs">
+      <button class="path-tab" type="button" role="tab" id="path-tab-direct" aria-controls="path-panel-direct" aria-selected="true" data-path-tab="direct" data-i18n="hero.path.tabDirect">Direct P2P</button>
+      <button class="path-tab" type="button" role="tab" id="path-tab-relay" aria-controls="path-panel-relay" aria-selected="false" data-path-tab="relay" data-i18n="hero.path.tabRelay">Relay fallback</button>
+    </div>
+  </div>
+
+  <div id="path-panel-direct" data-path-panel="direct" role="tabpanel" aria-labelledby="path-tab-direct">
+    <div class="flex items-center justify-between gap-3 border-b border-line px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.08em]">
+      <span class="text-muted" data-i18n="hero.path.statusDirect">LAN/VPN · Happy Eyeballs</span>
+      <span class="flex items-center gap-1 text-[#4ADE80]"><span aria-hidden="true">✓</span><span data-i18n="hero.path.connected">CONNECTED</span></span>
+    </div>
+
+    <svg class="hidden h-auto w-full lg:block" viewBox="0 0 560 360" role="img" aria-label="Direct P2P data path" data-i18n-attr="aria-label:hero.path.altDirect">
+      <defs>
+        <marker id="d-green" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0L8 4L0 8Z" fill="#4ADE80"/>
+        </marker>
+        <marker id="d-muted" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0L8 4L0 8Z" fill="#8B9694"/>
+        </marker>
+      </defs>
+      <g class="font-mono">
+        <g stroke="#2B3031" stroke-width="1" vector-effect="non-scaling-stroke">
+          <path d="M90 72V300"/>
+          <path d="M280 72V300" opacity="0.35" stroke-dasharray="2 4"/>
+          <path d="M470 72V300"/>
+        </g>
+
+        <rect x="20" y="18" width="140" height="54" fill="#1D2223" stroke="#343A3B"/>
+        <rect x="20" y="18" width="4" height="4" fill="#4ADE80"/>
+        <text x="90" y="40" text-anchor="middle" fill="#E7EDEC" font-size="11">WINDOWS</text>
+        <text x="90" y="57" text-anchor="middle" fill="#8B9694" font-size="9.5">10.0.0.2</text>
+
+        <g opacity="0.35">
+          <rect x="210" y="18" width="140" height="54" fill="#1D2223" stroke="#343A3B"/>
+          <rect x="210" y="18" width="4" height="4" fill="#5E6866"/>
+          <text x="280" y="40" text-anchor="middle" fill="#E7EDEC" font-size="11" data-i18n="hero.diagram.control">PROXY / CONTROL</text>
+          <text x="280" y="57" text-anchor="middle" fill="#8B9694" font-size="9.5">mTLS · :9520</text>
+        </g>
+        <text x="286" y="180" fill="#5E6866" font-size="8" data-i18n="hero.path.idle">idle</text>
+
+        <rect x="400" y="18" width="140" height="54" fill="#1D2223" stroke="#343A3B"/>
+        <rect x="400" y="18" width="4" height="4" fill="#4ADE80"/>
+        <text x="470" y="40" text-anchor="middle" fill="#E7EDEC" font-size="11">ANDROID</text>
+        <text x="470" y="57" text-anchor="middle" fill="#8B9694" font-size="9.5">192.168.1.24</text>
+
+        <g stroke="#8B9694" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#d-muted)" vector-effect="non-scaling-stroke">
+          <path d="M274 100H96"/>
+          <path d="M286 100H464"/>
+        </g>
+        <g fill="#8B9694" font-size="9" text-anchor="middle">
+          <text x="185" y="91" data-i18n="hero.path.ticket">Session Ticket · 32 B</text>
+          <text x="375" y="91" data-i18n="hero.path.ticket">Session Ticket · 32 B</text>
+        </g>
+
+        <path d="M96 145H464" fill="none" stroke="#4ADE80" stroke-width="1" stroke-dasharray="4 4" marker-end="url(#d-green)" vector-effect="non-scaling-stroke"/>
+        <rect x="196" y="126" width="168" height="13" fill="#171A1B"/>
+        <text x="280" y="137" text-anchor="middle" fill="#4ADE80" font-size="9.5" data-i18n="hero.path.happy">Happy Eyeballs · 300 ms</text>
+        <text x="280" y="161" text-anchor="middle" fill="#4ADE80" font-size="8.5"><tspan>✓ </tspan><tspan data-i18n="hero.path.connected">CONNECTED</tspan></text>
+
+        <path d="M96 212H464" fill="none" stroke="#4ADE80" stroke-width="2.5" marker-start="url(#d-green)" marker-end="url(#d-green)"/>
+        <g fill="#4ADE80" text-anchor="middle">
+          <text x="280" y="202" font-size="10" data-i18n="hero.path.directStream">Direct Stream · WireGuard/LAN</text>
+          <text x="280" y="234" font-size="9" data-i18n="hero.path.zeroServer">0 Server Load</text>
+        </g>
+        <text x="280" y="248" text-anchor="middle" fill="#8B9694" font-size="8.5" data-i18n="hero.path.frames">49 B frames</text>
+
+        <text x="280" y="322" text-anchor="middle" fill="#5E6866" font-size="8.5" data-i18n="hero.path.directNote">end-to-end TLS · no server bytes</text>
+      </g>
+    </svg>
+
+    <div class="divide-y divide-line lg:hidden">
+      <div class="flex items-start gap-4 px-3 py-2.5 font-mono text-[10px]">
+        <span class="w-[74px] shrink-0 text-faint">0 ms</span>
+        <span class="text-fg" data-i18n="hero.path.ticket">Session Ticket · 32 B</span>
+      </div>
+      <div class="flex items-start gap-4 px-3 py-2.5 font-mono text-[10px]">
+        <span class="w-[74px] shrink-0 text-faint">0–300 ms</span>
+        <span class="text-fg" data-i18n="hero.path.happy">Happy Eyeballs · 300 ms</span>
+      </div>
+      <div class="flex items-start gap-4 px-3 py-2.5 font-mono text-[10px]">
+        <span class="w-[74px] shrink-0 text-faint">300 ms</span>
+        <span class="text-[#4ADE80]">✓ <span data-i18n="hero.path.connected">CONNECTED</span></span>
+      </div>
+      <div class="flex items-start gap-4 px-3 py-2.5 font-mono text-[10px]">
+        <span class="w-[74px] shrink-0 text-faint">300 ms+</span>
+        <span class="text-fg"><span data-i18n="hero.path.directStream">Direct Stream · WireGuard/LAN</span> · <span class="text-[#4ADE80]" data-i18n="hero.path.zeroServer">0 Server Load</span></span>
+      </div>
+    </div>
+
+    <p class="border-t border-line px-3 py-2 font-mono text-[9px] text-faint" data-i18n="hero.path.captionDirect">direct path · 0 server load · end-to-end TLS</p>
+  </div>
+
+  <div id="path-panel-relay" data-path-panel="relay" role="tabpanel" aria-labelledby="path-tab-relay" hidden>
+    <div class="flex items-center justify-between gap-3 border-b border-line px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.08em]">
+      <span class="text-[#F87171]" data-i18n="hero.path.timeoutShort">TIMEOUT &gt; 1.2 S</span>
+      <span class="text-accent" data-i18n="hero.path.serverPipe">SERVER PIPE</span>
+    </div>
+
+    <svg class="hidden h-auto w-full lg:block" viewBox="0 0 560 360" role="img" aria-label="Relay fallback data path" data-i18n-attr="aria-label:hero.path.altRelay">
+      <defs>
+        <marker id="r-red" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0L8 4L0 8Z" fill="#F87171"/>
+        </marker>
+        <marker id="r-teal" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0L8 4L0 8Z" fill="#28CCC9"/>
+        </marker>
+        <marker id="r-muted" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0L8 4L0 8Z" fill="#8B9694"/>
+        </marker>
+      </defs>
+      <g class="font-mono">
+        <g stroke="#2B3031" stroke-width="1" vector-effect="non-scaling-stroke">
+          <path d="M90 72V300"/>
+          <path d="M280 72V300"/>
+          <path d="M470 72V300"/>
+        </g>
+
+        <rect x="20" y="18" width="140" height="54" fill="#1D2223" stroke="#343A3B"/>
+        <rect x="20" y="18" width="4" height="4" fill="#8B9694"/>
+        <text x="90" y="40" text-anchor="middle" fill="#E7EDEC" font-size="11">WINDOWS</text>
+        <text x="90" y="57" text-anchor="middle" fill="#8B9694" font-size="9.5">10.0.0.2</text>
+
+        <rect x="210" y="18" width="140" height="54" fill="#1D2223" stroke="#343A3B"/>
+        <rect x="210" y="18" width="4" height="4" fill="#28CCC9"/>
+        <text x="280" y="40" text-anchor="middle" fill="#E7EDEC" font-size="11" data-i18n="hero.diagram.control">PROXY / CONTROL</text>
+        <text x="280" y="57" text-anchor="middle" fill="#8B9694" font-size="9.5">mTLS · :9520</text>
+
+        <rect x="400" y="18" width="140" height="54" fill="#1D2223" stroke="#343A3B"/>
+        <rect x="400" y="18" width="4" height="4" fill="#8B9694"/>
+        <text x="470" y="40" text-anchor="middle" fill="#E7EDEC" font-size="11">ANDROID</text>
+        <text x="470" y="57" text-anchor="middle" fill="#8B9694" font-size="9.5">192.168.1.24</text>
+
+        <g stroke="#8B9694" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#r-muted)" vector-effect="non-scaling-stroke">
+          <path d="M274 100H96"/>
+          <path d="M286 100H464"/>
+        </g>
+        <g fill="#8B9694" font-size="9" text-anchor="middle">
+          <text x="185" y="91" data-i18n="hero.path.ticket">Session Ticket · 32 B</text>
+          <text x="375" y="91" data-i18n="hero.path.ticket">Session Ticket · 32 B</text>
+        </g>
+
+        <path d="M96 145H464" fill="none" stroke="#F87171" stroke-width="1" stroke-dasharray="4 4" opacity="0.8" vector-effect="non-scaling-stroke"/>
+        <g stroke="#F87171" stroke-width="1.5" vector-effect="non-scaling-stroke">
+          <path d="M276 141l8 8M284 141l-8 8"/>
+        </g>
+        <rect x="166" y="118" width="228" height="13" fill="#171A1B"/>
+        <text x="280" y="128" text-anchor="middle" fill="#F87171" font-size="9.5" data-i18n="hero.path.timeout">LAN/VPN Timeout (&gt; 1.2 s)</text>
+
+        <rect x="180" y="190" width="200" height="80" fill="#171A1B" stroke="#28CCC9"/>
+        <text x="280" y="208" text-anchor="middle" fill="#8B9694" font-size="8" data-i18n="hero.path.proxyRelay">PROXY · RELAY</text>
+        <text x="280" y="228" text-anchor="middle" fill="#E7EDEC" font-size="10" data-i18n="hero.path.relayBox">io.Copy RingBuffer</text>
+        <text x="280" y="246" text-anchor="middle" fill="#28CCC9" font-size="9" data-i18n="hero.path.relayDisk">0 B to Disk</text>
+        <path d="M200 258H360" fill="none" stroke="#28CCC9" stroke-width="1" class="flow-line" vector-effect="non-scaling-stroke"/>
+
+        <g fill="none" stroke="#28CCC9" stroke-width="1.5" vector-effect="non-scaling-stroke">
+          <path d="M96 228H180" class="flow-line" marker-end="url(#r-teal)"/>
+          <path d="M380 228H464" class="flow-line" marker-end="url(#r-teal)"/>
+        </g>
+        <text x="138" y="218" text-anchor="middle" fill="#8B9694" font-size="8" data-i18n="hero.path.encrypted">encrypted stream</text>
+        <text x="422" y="218" text-anchor="middle" fill="#8B9694" font-size="8" data-i18n="hero.path.serverPipe">SERVER PIPE</text>
+
+        <text x="280" y="322" text-anchor="middle" fill="#28CCC9" font-size="9" data-i18n="hero.path.e2e">End-to-End Encrypted via Server Pipe</text>
+      </g>
+    </svg>
+
+    <div class="divide-y divide-line lg:hidden">
+      <div class="flex items-start gap-4 px-3 py-2.5 font-mono text-[10px]">
+        <span class="w-[74px] shrink-0 text-faint">0 ms</span>
+        <span class="text-fg" data-i18n="hero.path.ticket">Session Ticket · 32 B</span>
+      </div>
+      <div class="flex items-start gap-4 px-3 py-2.5 font-mono text-[10px]">
+        <span class="w-[74px] shrink-0 text-faint">&gt; 1.2 s</span>
+        <span class="text-[#F87171]" data-i18n="hero.path.timeout">LAN/VPN Timeout (&gt; 1.2 s)</span>
+      </div>
+      <div class="flex items-start gap-4 px-3 py-2.5 font-mono text-[10px]">
+        <span class="w-[74px] shrink-0 text-faint">Win → Proxy</span>
+        <span class="text-fg" data-i18n="hero.path.encrypted">encrypted stream</span>
+      </div>
+      <div class="flex items-start gap-4 px-3 py-2.5 font-mono text-[10px]">
+        <span class="w-[74px] shrink-0 text-faint">Proxy → Android</span>
+        <span class="text-fg"><span data-i18n="hero.path.relayBox">io.Copy RingBuffer</span> · <span class="text-accent" data-i18n="hero.path.relayDisk">0 B to Disk</span></span>
+      </div>
+      <div class="flex items-start gap-4 px-3 py-2.5 font-mono text-[10px]">
+        <span class="w-[74px] shrink-0 text-faint">E2E</span>
+        <span class="text-accent" data-i18n="hero.path.e2e">End-to-End Encrypted via Server Pipe</span>
+      </div>
+    </div>
+
+    <p class="border-t border-line px-3 py-2 font-mono text-[9px] text-faint" data-i18n="hero.path.captionRelay">timeout &gt; 1.2 s · io.Copy relay · 0 B to disk</p>
+  </div>
+</figure>
+      </div>
+    </section>
+
+    <section class="scroll-mt-20 border-b border-line" id="features">
+      <div class="mx-auto max-w-page px-5 py-14 sm:px-8 lg:py-20">
+        <div class="grid gap-6 border-b border-line pb-8 lg:grid-cols-[1fr_24rem] lg:items-end">
+          <div>
+            <p class="mono-label" data-i18n="features.eyebrow">Capabilities / 06</p>
+            <h2 class="section-title mt-3" data-i18n="features.title">What the protocol actually does.</h2>
+          </div>
+          <p class="text-[13px] leading-6 text-muted" data-i18n="features.lead">No dashboard demo. Each capability below maps to the wire format, a client behavior or a deployment default.</p>
+        </div>
+
+        <div class="grid grid-cols-1 border-l border-t border-line md:grid-cols-2 lg:grid-cols-3">
+          <article class="flex flex-col border-b border-r border-line p-6 transition-colors duration-150 ease-out hover:bg-panel sm:p-7">
+            <div class="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span>01</span><span data-i18n="features.items.0.tag">Auth</span>
+            </div>
+            <h3 class="mt-8 text-[15px] font-medium tracking-[-0.01em]" data-i18n="features.items.0.title">Certificate identity, not shared secrets.</h3>
+            <p class="mt-2.5 text-[13px] leading-[1.7] text-muted" data-i18n="features.items.0.body">The control plane derives DeviceID from the SHA-256 fingerprint of a client certificate verified at the reverse proxy. Inbound identity headers are stripped and rewritten.</p>
+            <p class="mt-auto border-t border-line pt-3 font-mono text-[10px] uppercase tracking-[0.06em] text-accent" data-i18n="features.items.0.metric">SHA-256 · trusted CIDRs</p>
+          </article>
+
+          <article class="flex flex-col border-b border-r border-line p-6 transition-colors duration-150 ease-out hover:bg-panel sm:p-7">
+            <div class="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span>02</span><span data-i18n="features.items.1.tag">Routing</span>
+            </div>
+            <h3 class="mt-8 text-[15px] font-medium tracking-[-0.01em]" data-i18n="features.items.1.title">Happy Eyeballs with a hard deadline.</h3>
+            <p class="mt-2.5 text-[13px] leading-[1.7] text-muted" data-i18n="features.items.1.body">Both peers advertise LAN and VPN candidates; the receiver races them in 300 ms steps. If nothing answers by 1.2 s, the session moves to the relay.</p>
+            <p class="mt-auto border-t border-line pt-3 font-mono text-[10px] uppercase tracking-[0.06em] text-accent" data-i18n="features.items.1.metric">300 ms · 1.2 s</p>
+          </article>
+
+          <article class="flex flex-col border-b border-r border-line p-6 transition-colors duration-150 ease-out hover:bg-panel sm:p-7">
+            <div class="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span>03</span><span data-i18n="features.items.2.tag">Relay</span>
+            </div>
+            <h3 class="mt-8 text-[15px] font-medium tracking-[-0.01em]" data-i18n="features.items.2.title">Zero disk writes.</h3>
+            <p class="mt-2.5 text-[13px] leading-[1.7] text-muted" data-i18n="features.items.2.body">The server pairs both peers, checks the single-use 32-byte ticket and forwards bytes with io.Copy. Pairing times out after 15 s.</p>
+            <p class="mt-auto border-t border-line pt-3 font-mono text-[10px] uppercase tracking-[0.06em] text-accent" data-i18n="features.items.2.metric">0 B to disk · 15 s</p>
+          </article>
+
+          <article class="flex flex-col border-b border-r border-line p-6 transition-colors duration-150 ease-out hover:bg-panel sm:p-7">
+            <div class="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span>04</span><span data-i18n="features.items.3.tag">Framing</span>
+            </div>
+            <h3 class="mt-8 text-[15px] font-medium tracking-[-0.01em]" data-i18n="features.items.3.title">49-byte frames, resumable reads.</h3>
+            <p class="mt-2.5 text-[13px] leading-[1.7] text-muted" data-i18n="features.items.3.body">The data plane uses fixed 49-byte frames; Android adds BLAKE3 digests. Blob downloads support HTTP Range on both clients.</p>
+            <p class="mt-auto border-t border-line pt-3 font-mono text-[10px] uppercase tracking-[0.06em] text-accent" data-i18n="features.items.3.metric">49 B · BLAKE3 · Range</p>
+          </article>
+
+          <article class="flex flex-col border-b border-r border-line p-6 transition-colors duration-150 ease-out hover:bg-panel sm:p-7">
+            <div class="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span>05</span><span data-i18n="features.items.4.tag">Records</span>
+            </div>
+            <h3 class="mt-8 text-[15px] font-medium tracking-[-0.01em]" data-i18n="features.items.4.title">Durable until the sender deletes.</h3>
+            <p class="mt-2.5 text-[13px] leading-[1.7] text-muted" data-i18n="features.items.4.body">Text up to 64 KiB lives in SQLite; images and files stream into a blob directory. Records do not expire automatically; only the sender can delete one.</p>
+            <p class="mt-auto border-t border-line pt-3 font-mono text-[10px] uppercase tracking-[0.06em] text-accent" data-i18n="features.items.4.metric">64 KiB · owner-only delete</p>
+          </article>
+
+          <article class="flex flex-col border-b border-r border-line p-6 transition-colors duration-150 ease-out hover:bg-panel sm:p-7">
+            <div class="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+              <span>06</span><span data-i18n="features.items.5.tag">Runtime</span>
+            </div>
+            <h3 class="mt-8 text-[15px] font-medium tracking-[-0.01em]" data-i18n="features.items.5.title">Distroless, nonroot, multi-arch.</h3>
+            <p class="mt-2.5 text-[13px] leading-[1.7] text-muted" data-i18n="features.items.5.body">The server image runs on linux/amd64 and linux/arm64 as nonroot with a read-only root filesystem, no shell and no package manager.</p>
+            <p class="mt-auto border-t border-line pt-3 font-mono text-[10px] uppercase tracking-[0.06em] text-accent" data-i18n="features.items.5.metric">amd64 · arm64 · read-only</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="border-b border-line bg-deep" aria-label="Protocol limits">
+      <div class="mx-auto grid max-w-page grid-cols-2 divide-y divide-line border-y border-line md:grid-cols-4 md:divide-x md:divide-y-0">
+        <div class="px-5 py-5 sm:px-7">
+          <p class="mono-label" data-i18n="spec.items.0.label">Text cap</p>
+          <p class="mt-2 flex items-baseline gap-1.5 tabular-nums">
+            <span class="font-mono text-[22px] tracking-[-0.02em] text-fg" data-i18n="spec.items.0.value">64</span>
+            <span class="font-mono text-[10px] uppercase tracking-[0.06em] text-muted" data-i18n="spec.items.0.unit">KiB</span>
+          </p>
+          <p class="mt-1 text-[11px] leading-5 text-muted" data-i18n="spec.items.0.note">per record, stored in SQLite</p>
+        </div>
+        <div class="px-5 py-5 sm:px-7">
+          <p class="mono-label" data-i18n="spec.items.1.label">P2P threshold</p>
+          <p class="mt-2 flex items-baseline gap-1.5 tabular-nums">
+            <span class="font-mono text-[22px] tracking-[-0.02em] text-fg" data-i18n="spec.items.1.value">15</span>
+            <span class="font-mono text-[10px] uppercase tracking-[0.06em] text-muted" data-i18n="spec.items.1.unit">MiB</span>
+          </p>
+          <p class="mt-1 text-[11px] leading-5 text-muted" data-i18n="spec.items.1.note">default; 5–50 MiB adjustable</p>
+        </div>
+        <div class="px-5 py-5 sm:px-7">
+          <p class="mono-label" data-i18n="spec.items.2.label">Relay deadline</p>
+          <p class="mt-2 flex items-baseline gap-1.5 tabular-nums">
+            <span class="font-mono text-[22px] tracking-[-0.02em] text-fg" data-i18n="spec.items.2.value">1.2</span>
+            <span class="font-mono text-[10px] uppercase tracking-[0.06em] text-muted" data-i18n="spec.items.2.unit">s</span>
+          </p>
+          <p class="mt-1 text-[11px] leading-5 text-muted" data-i18n="spec.items.2.note">300 ms candidate steps</p>
+        </div>
+        <div class="px-5 py-5 sm:px-7">
+          <p class="mono-label" data-i18n="spec.items.3.label">Data frame</p>
+          <p class="mt-2 flex items-baseline gap-1.5 tabular-nums">
+            <span class="font-mono text-[22px] tracking-[-0.02em] text-fg" data-i18n="spec.items.3.value">49</span>
+            <span class="font-mono text-[10px] uppercase tracking-[0.06em] text-muted" data-i18n="spec.items.3.unit">B</span>
+          </p>
+          <p class="mt-1 text-[11px] leading-5 text-muted" data-i18n="spec.items.3.note">fixed size, both clients</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="scroll-mt-20 border-b border-line" id="docs">
+      <div class="mx-auto flex max-w-page flex-col gap-8 px-5 py-14 sm:px-8 lg:flex-row lg:items-end lg:justify-between">
+        <div class="max-w-[36rem]">
+          <p class="mono-label" data-i18n="docs.eyebrow">Documentation</p>
+          <h2 class="section-title mt-3" data-i18n="docs.title">Deploy it behind your proxy.</h2>
+          <p class="mt-3 text-[13.5px] leading-6 text-muted" data-i18n="docs.lead">The example Compose file never publishes port 9520. Terminate mTLS at the proxy, strip inbound X-Client-* headers, then set fresh verified values.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a class="btn btn-primary" href="docs/server.html">
+            <span data-i18n="docs.server">Server setup</span><span aria-hidden="true">↗</span>
+          </a>
+          <a class="btn btn-ghost" href="docs/windows.html">
+            <span data-i18n="docs.windows">Windows client</span><span class="text-muted" aria-hidden="true">↗</span>
+          </a>
+          <a class="btn btn-ghost" href="docs/android.html">
+            <span data-i18n="docs.android">Android client</span><span class="text-muted" aria-hidden="true">↗</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bg-ink">
+    <div class="mx-auto max-w-page px-5 py-10 sm:px-8">
+      <div class="grid gap-8 border-b border-line pb-8 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr]">
+        <div>
+          <a class="flex items-center gap-2.5" href="#top" aria-label="MoliSync">
+            <img class="h-6 w-6 rounded-[3px] border border-line" src="assets/branding/molisync-icon.svg" width="24" height="24" alt="">
+            <span class="text-[13px] font-medium tracking-[-0.01em]">MoliSync</span>
+          </a>
+          <p class="mt-3 max-w-[28rem] text-[12.5px] leading-6 text-muted" data-i18n="footer.tagline">Self-hosted cross-device transfer and sync. Your server, your certificates, your network path.</p>
+          <p class="mt-3 font-mono text-[9.5px] uppercase tracking-[0.08em] text-faint">Go · .NET 8 · Kotlin · Docker</p>
+        </div>
+        <div class="flex flex-col gap-2">
+          <p class="mono-label" data-i18n="footer.project">Project</p>
+          <a class="link-quiet text-[12.5px]" href="https://github.com/Molirain/Moli_Sync" target="_blank" rel="noopener" data-i18n="footer.links.source">Source code</a>
+          <a class="link-quiet text-[12.5px]" href="https://github.com/Molirain/Moli_Sync/releases" target="_blank" rel="noopener" data-i18n="footer.links.releases">Releases</a>
+          <a class="link-quiet text-[12.5px]" href="https://github.com/Molirain/Moli_Sync/blob/master/proto/sync.proto" target="_blank" rel="noopener" data-i18n="footer.links.protocol">Protocol definition</a>
+          <a class="link-quiet text-[12.5px]" href="https://github.com/Molirain/Moli_Sync/blob/master/MoliSync%20%E5%88%86%E5%B8%83%E5%BC%8F%E8%B7%A8%E7%AB%AF%E5%90%8C%E6%AD%A5%E4%B8%8E%E7%82%B9%E5%AF%B9%E7%82%B9%E6%B5%81%E5%BC%8F%E4%BA%92%E4%BC%A0%E7%B3%BB%E7%BB%9F%E6%8A%80%E6%9C%AF%E6%9E%B6%E6%9E%84%E7%99%BD%E7%9A%AE%E4%B9%A6.md" target="_blank" rel="noopener" data-i18n="footer.links.whitepaper">Architecture whitepaper</a>
+        </div>
+        <div class="flex flex-col gap-2">
+          <p class="mono-label" data-i18n="footer.docs">Docs</p>
+          <a class="link-quiet text-[12.5px]" href="docs/server.html" data-i18n="footer.links.server">Server setup</a>
+          <a class="link-quiet text-[12.5px]" href="docs/windows.html" data-i18n="footer.links.windows">Windows client</a>
+          <a class="link-quiet text-[12.5px]" href="docs/android.html" data-i18n="footer.links.android">Android client</a>
+          <a class="link-quiet text-[12.5px]" href="https://github.com/Molirain/Moli_Sync/issues" target="_blank" rel="noopener" data-i18n="footer.links.issues">Issues</a>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2 pt-5 font-mono text-[9.5px] uppercase tracking-[0.08em] text-faint sm:flex-row sm:items-center sm:justify-between">
+        <span>© <span id="year">2026</span> MoliSync</span>
+        <span data-i18n="footer.license">No repository-wide license has been declared yet.</span>
+        <a class="link-quiet hover:text-accent" href="privacy.html" data-i18n="footer.links.privacy">Privacy</a>
+        <a class="link-quiet hover:text-accent" href="#top" data-i18n="footer.links.top">Back to top ↑</a>
+      </div>
+    </div>
+  </footer>
+
+  <script defer src="assets/js/main.js"></script>
+</body>
+</html>

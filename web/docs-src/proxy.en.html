@@ -1,0 +1,51 @@
+<p class="docs-lead">MoliSync trusts identity headers only from configured proxy CIDRs. The proxy must verify the client certificate, strip any inbound identity headers and then set fresh values.</p>
+
+<h2 id="trust-order">Trust order</h2>
+<ol>
+  <li>Terminate TLS and request a client certificate.</li>
+  <li>Verify the certificate chain and, where applicable, revocation.</li>
+  <li>Remove inbound <code>X-Client-*</code> headers.</li>
+  <li>Set the verified result, fingerprint and subject from the proxy's own variables.</li>
+  <li>Forward WebSocket upgrades and disable request and response buffering.</li>
+</ol>
+
+<h2 id="nginx">Nginx example</h2>
+<pre data-lang="nginx"><code>proxy_http_version 1.1;
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection $connection_upgrade;
+proxy_request_buffering off;
+proxy_buffering off;
+
+proxy_set_header X-Client-Verify $ssl_client_verify;
+proxy_set_header X-Client-Fingerprint $ssl_client_fingerprint;
+proxy_set_header X-Client-DN $ssl_client_s_dn;</code></pre>
+
+<h2 id="map-headers">Map the headers</h2>
+<p>Tell the control plane which header names it should read:</p>
+<table>
+  <thead>
+    <tr><th>Variable</th><th>Value in the example</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>MOLISYNC_PROXY_VERIFY_HEADER</code></td><td><code>X-Client-Verify</code></td></tr>
+    <tr><td><code>MOLISYNC_PROXY_FINGERPRINT_HEADER</code></td><td><code>X-Client-Fingerprint</code></td></tr>
+    <tr><td><code>MOLISYNC_PROXY_DN_HEADER</code></td><td><code>X-Client-DN</code></td></tr>
+  </tbody>
+</table>
+
+<h2 id="network">Network boundary</h2>
+<p>Only the proxy and the control plane should join <code>molisync-internal</code> (subnet <code>172.28.0.0/24</code> in the example). Keep <code>MOLISYNC_PROXY_TRUSTED_CIDRS</code> as narrow as that network allows.</p>
+
+<div class="callout">
+  <span class="callout-label">Caution</span>
+  <p>Anyone who can reach the service on the trusted network can forge identity headers. Never expose the Go service directly to the public internet, and never let clients join that network.</p>
+</div>
+
+<h2 id="checklist">Checklist</h2>
+<ul>
+  <li>Client certificate verification enabled and tested with a trusted certificate.</li>
+  <li>Inbound <code>X-Client-*</code> headers stripped at the edge.</li>
+  <li><code>MOLISYNC_PROXY_TRUSTED_CIDRS</code> matches only the proxy network.</li>
+  <li>WebSocket upgrade and streaming (no buffering) verified.</li>
+  <li>Health check still points at the real listen port.</li>
+</ul>

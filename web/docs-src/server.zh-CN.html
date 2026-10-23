@@ -1,0 +1,51 @@
+<p class="docs-lead">控制面是一个静态编译的 Go 服务，以 distroless 容器分发。它假定由反向代理终止 mTLS，自身从不发布 9520 端口。</p>
+
+<h2 id="requirements">环境要求</h2>
+<ul>
+  <li>Linux 主机，Docker 24+（使用示例 Compose），或 Go 1.22+ 从源码构建。</li>
+  <li>能校验证书链的反向代理：Nginx、Nginx Proxy Manager 或 Caddy。</li>
+  <li>一个只允许代理与控制面加入的私有 Docker 网络。</li>
+</ul>
+
+<h2 id="pull-and-run">拉取并启动</h2>
+<pre data-lang="sh"><code>docker pull ghcr.io/molirain/molisync-server:latest
+cp docker-compose.example.yml docker-compose.yml
+docker compose up -d
+docker compose ps</code></pre>
+<p>镜像支持 <code>linux/amd64</code> 与 <code>linux/arm64</code>，以 <code>nonroot</code> 运行，内部没有 shell 或包管理器。</p>
+
+<div class="callout">
+  <span class="callout-label">警告</span>
+  <p>示例 Compose 不会发布 <code>9520</code> 端口。不要添加宿主机端口映射；把你现有的反向代理加入 <code>molisync-internal</code> 网络即可。</p>
+</div>
+
+<h2 id="configuration">配置</h2>
+<p>所有设置都能用环境变量传入，也可以使用 YAML；同名环境变量优先于文件。</p>
+<table>
+  <thead>
+    <tr><th>变量</th><th>作用</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>MOLISYNC_SERVER_LISTEN</code></td><td>监听地址。镜像内默认 <code>0.0.0.0:9520</code>。</td></tr>
+    <tr><td><code>MOLISYNC_PROXY_TRUSTED_CIDRS</code></td><td>允许断言身份的代理网段，必须与 Compose 子网一致。</td></tr>
+    <tr><td><code>MOLISYNC_PROXY_VERIFY_HEADER</code></td><td>携带校验结果的头。</td></tr>
+    <tr><td><code>MOLISYNC_PROXY_FINGERPRINT_HEADER</code></td><td>携带证书指纹的头。</td></tr>
+    <tr><td><code>MOLISYNC_PROXY_DN_HEADER</code></td><td>携带证书 Subject 的头。</td></tr>
+    <tr><td><code>MOLISYNC_AUTH_DEVICE_ID_SOURCE</code></td><td><code>fingerprint</code>（推荐）或 <code>dn_cn</code>。</td></tr>
+    <tr><td><code>MOLISYNC_STORAGE_DATA_DIR</code></td><td>SQLite 与 blob 根目录，默认 <code>/var/lib/molisync</code>。</td></tr>
+    <tr><td><code>MOLISYNC_STORAGE_MAX_ITEM_BYTES</code></td><td>单个 blob 上限，默认 <code>64 MiB</code>。</td></tr>
+    <tr><td><code>MOLISYNC_LOG_LEVEL</code> / <code>..._FORMAT</code></td><td><code>debug|info|warn|error</code> 与 <code>json|text</code>。</td></tr>
+  </tbody>
+</table>
+
+<h2 id="health-and-data">健康检查与数据</h2>
+<p>镜像健康检查调用二进制自带的 <code>-healthcheck-url</code>，探测 <code>http://127.0.0.1:9520/healthz</code>。如果修改了监听端口，Compose 的健康检查也要一起改。</p>
+<p>记录与 blob 都存放在 <code>molisync-data</code> 卷中。备份时请同时复制 SQLite 数据库与 <code>blobs/</code> 目录；删除卷就等于删除全部同步记录。</p>
+
+<h2 id="build-locally">本地构建</h2>
+<pre data-lang="sh"><code>cd server
+docker build -t molisync-server:dev .
+docker run --rm -p 127.0.0.1:9520:9520 \
+  -e MOLISYNC_PROXY_TRUSTED_CIDRS=127.0.0.1/32 \
+  molisync-server:dev</code></pre>
+<p>下一步：<a href="./proxy.html">在反向代理上终止 mTLS</a>。</p>

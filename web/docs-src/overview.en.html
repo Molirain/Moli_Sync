@@ -1,0 +1,43 @@
+<p class="docs-lead">MoliSync is a self-hosted control plane and two clients for moving text, images and files between devices you control. Identity comes from client certificates; transfers prefer a direct LAN/VPN link and fall back to a zero-disk relay.</p>
+
+<h2 id="what-runs-where">What runs where</h2>
+<p>Three components share one versioned protocol:</p>
+<table>
+  <thead>
+    <tr><th>Component</th><th>Stack</th><th>Role</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Control plane</td><td>Go · Docker</td><td>Trusted-proxy authentication, device registry, WebSocket presence, records and blob storage.</td></tr>
+    <tr><td>Windows client</td><td>.NET 8 · Avalonia</td><td>Three-tab cloud sync, certificate-store access, Range downloads, P2P send and receive.</td></tr>
+    <tr><td>Android client</td><td>Kotlin · Compose</td><td>KeyChain mTLS, share intents, a foreground sync service and MediaStore archiving.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="how-a-transfer-works">How a transfer works</h2>
+<ol>
+  <li>Your reverse proxy verifies the client certificate and overwrites the identity headers.</li>
+  <li>The control plane maps the certificate fingerprint to a stable <code>DeviceID</code> and issues a single-use <code>32-byte</code> session ticket.</li>
+  <li>Both peers race LAN and VPN candidates in <code>300 ms</code> steps.</li>
+  <li>A direct link completes mTLS and streams <code>49-byte</code> frames. If nothing answers by <code>1.2 s</code>, the server relays the same session with <code>io.Copy</code>.</li>
+  <li>Text and threshold-sized files can also be stored durably: SQLite metadata plus a blob directory.</li>
+</ol>
+
+<h2 id="current-limits">Current limits</h2>
+<ul>
+  <li>Records never expire automatically, and there is no quota.</li>
+  <li>End-to-end P2P still needs real-network regression testing.</li>
+  <li>Client auto-update is deferred.</li>
+  <li>No repository-wide license has been declared yet.</li>
+</ul>
+
+<div class="callout">
+  <span class="callout-label">Status</span>
+  <p>Version <code>0.5.x</code>, under active development. Treat the deployment notes as a working baseline, not a production guarantee.</p>
+</div>
+
+<h2 id="start-here">Start here</h2>
+<ul>
+  <li><a href="./server.html">Deploy the control plane</a> behind your own proxy.</li>
+  <li><a href="./clients.html">Choose a Windows or Android client</a>.</li>
+  <li><a href="./protocol.html">Read the wire protocol</a> before writing another client.</li>
+</ul>
