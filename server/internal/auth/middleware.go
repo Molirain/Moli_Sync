@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,6 +24,15 @@ type Options struct {
 	MaxHeaderValueBytes       int
 	MaxCommonNameLength       int
 	MaxDistinguishedNameBytes int
+	// CertHeader names a header that carries the whole client certificate in
+	// PEM form. It is only consulted when the fingerprint header is empty, and
+	// exists because nginx cannot compute a SHA-256 digest on its own
+	// ($ssl_client_fingerprint is SHA-1). Empty disables the feature.
+	CertHeader string
+	// ClientCAPool, when non-nil, must sign a certificate taken from CertHeader.
+	ClientCAPool *x509.CertPool
+	// Now overrides the clock for certificate validity checks in tests.
+	Now func() time.Time
 }
 
 // Error is an authentication failure that maps to a specific HTTP status and
@@ -152,6 +162,12 @@ func (m *Middleware) Authenticate(r *http.Request) (Identity, error) {
 			}
 		}
 	}
+	if fingerprint == "" {
+		fingerprint, err = m.fingerprintFromCertHeader(r)
+		if err != nil {
+			return Identity{}, err
+		}
+	}
 
 	rawDN, err := m.readHeader(r, m.options.DNHeader, m.options.MaxDistinguishedNameBytes)
 	if err != nil {
@@ -198,6 +214,44 @@ func (m *Middleware) Authenticate(r *http.Request) (Identity, error) {
 		ProxyIP:         proxyIP,
 		AuthenticatedAt: m.now().UTC(),
 	}, nil
+}
+
+// fingerprintFromCertHeader derives the SHA-256 digest from a forwarded
+// certificate. It returns an empty string when the feature is disabled or the
+// header is absent, so callers can keep the usual "missing fingerprint" error.
+func (m *Middleware) fingerprintFromCertHeader(r *http.Request) (string, error) {
+	if m.options.CertHeader == "" {
+		return "", nil
+	}
+	raw, err := m.readHeader(r, m.options.CertHeader, maxCertificateHeaderBytes)
+	if err != nil {
+		return "", err
+	}
+	if raw == "" {
+		return "", nil
+	}
+
+	certificate, parseErr := ParseClientCertificate(raw)
+	if parseErr != nil {
+		return "", &Error{
+			Status:  http.StatusUnauthorized,
+			Code:    "invalid_client_certificate",
+			Message: "forwarded client certificate could not be parsed",
+		}
+	}
+	clock := m.now
+	if m.options.Now != nil {
+		clock = m.options.Now
+	}
+	if verifyErr := VerifyClientCertificate(certificate, m.options.ClientCAPool, clock().UTC()); verifyErr != nil {
+		m.logger.Warn("forwarded client certificate rejected", "error", verifyErr)
+		return "", &Error{
+			Status:  http.StatusUnauthorized,
+			Code:    "untrusted_client_certificate",
+			Message: "forwarded client certificate is not trusted",
+		}
+	}
+	return FingerprintOf(certificate), nil
 }
 
 func (m *Middleware) readHeader(r *http.Request, name string, limit int) (string, error) {

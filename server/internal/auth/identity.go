@@ -26,6 +26,10 @@ const DeviceIDPrefixCommonName = "cn:"
 // fingerprintHexLength is the length of a SHA-256 digest in lowercase hex.
 const fingerprintHexLength = 64
 
+// maxCertificateHeaderBytes bounds a PEM certificate forwarded in a header.
+// A typical leaf certificate is 1-2 KiB; the URL-encoded form is up to 3x that.
+const maxCertificateHeaderBytes = 16 * 1024
+
 var (
 	// ErrMissingFingerprint is returned when no certificate fingerprint was forwarded.
 	ErrMissingFingerprint = errors.New("missing client certificate fingerprint")

@@ -86,6 +86,13 @@ type ProxyConfig struct {
 	FingerprintHeader   string   `yaml:"fingerprint_header" env:"MOLISYNC_PROXY_FINGERPRINT_HEADER"`
 	DNHeader            string   `yaml:"dn_header" env:"MOLISYNC_PROXY_DN_HEADER"`
 	RequiredVerifyValue string   `yaml:"required_verify_value" env:"MOLISYNC_PROXY_REQUIRED_VERIFY_VALUE"`
+	// CertHeader carries the whole PEM client certificate. Set it when the
+	// proxy cannot compute a SHA-256 digest itself (nginx only offers the SHA-1
+	// $ssl_client_fingerprint); the server then derives the fingerprint.
+	CertHeader string `yaml:"cert_header" env:"MOLISYNC_PROXY_CERT_HEADER"`
+	// ClientCAFile is the CA that must have issued a certificate taken from
+	// CertHeader. Optional, but strongly recommended when CertHeader is used.
+	ClientCAFile string `yaml:"client_ca_file" env:"MOLISYNC_PROXY_CLIENT_CA_FILE"`
 }
 
 // AuthConfig controls how the certificate identity is turned into a DeviceID.
@@ -286,6 +293,12 @@ func (c *Config) Validate() error {
 		{"fingerprint_header", c.Proxy.FingerprintHeader},
 		{"dn_header", c.Proxy.DNHeader},
 	}
+	if certHeader := strings.TrimSpace(c.Proxy.CertHeader); certHeader != "" {
+		headers = append(headers, struct {
+			key   string
+			value string
+		}{"cert_header", certHeader})
+	}
 	seenHeaders := make(map[string]string, len(headers))
 	for _, header := range headers {
 		if !ValidHeaderName(header.value) {
@@ -304,6 +317,9 @@ func (c *Config) Validate() error {
 	verifyValue := strings.TrimSpace(c.Proxy.RequiredVerifyValue)
 	if verifyValue == "" || len(verifyValue) > 64 || strings.ContainsFunc(verifyValue, isControl) {
 		add("proxy.required_verify_value: must be a non-empty printable value of at most 64 bytes")
+	}
+	if strings.TrimSpace(c.Proxy.ClientCAFile) != "" && strings.TrimSpace(c.Proxy.CertHeader) == "" {
+		add("proxy.client_ca_file: requires proxy.cert_header to be set")
 	}
 
 	if c.Auth.DeviceIDSource != DeviceIDSourceFingerprint && c.Auth.DeviceIDSource != DeviceIDSourceCommonName {

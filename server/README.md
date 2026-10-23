@@ -100,6 +100,8 @@ docker run --rm -p 127.0.0.1:9520:9520 \
 | `proxy.trusted_cidrs` | `MOLISYNC_PROXY_TRUSTED_CIDRS` | 受信反代网段，逗号分隔；拒绝 `0.0.0.0/0`、`::/0` |
 | `proxy.verify_header` | `MOLISYNC_PROXY_VERIFY_HEADER` | mTLS 校验结果头 |
 | `proxy.fingerprint_header` | `MOLISYNC_PROXY_FINGERPRINT_HEADER` | 证书 SHA-256 指纹头 |
+| `proxy.cert_header` | `MOLISYNC_PROXY_CERT_HEADER` | 可选：整张客户端证书（PEM）头，指纹头为空时由服务端自行算 SHA-256 |
+| `proxy.client_ca_file` | `MOLISYNC_PROXY_CLIENT_CA_FILE` | 可选：校验证书头里的证书是否由该 CA 签发（需先设 `cert_header`） |
 | `proxy.dn_header` | `MOLISYNC_PROXY_DN_HEADER` | 证书 Subject 头 |
 | `proxy.required_verify_value` | `MOLISYNC_PROXY_REQUIRED_VERIFY_VALUE` | 通过值，默认 `SUCCESS` |
 | `auth.device_id_source` | `MOLISYNC_AUTH_DEVICE_ID_SOURCE` | `fingerprint`（默认）或 `dn_cn` |

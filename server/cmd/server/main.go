@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
 	"errors"
 	"flag"
 	"fmt"
@@ -124,6 +125,15 @@ func serve(cfg *config.Config, logger *slog.Logger) error {
 		return err
 	}
 
+	var clientCAPool *x509.CertPool
+	if path := strings.TrimSpace(cfg.Proxy.ClientCAFile); path != "" {
+		clientCAPool, err = auth.LoadCertPool(path)
+		if err != nil {
+			return err
+		}
+		logger.Info("verifying forwarded client certificates", "client_ca_file", path)
+	}
+
 	authMiddleware, err := auth.NewMiddleware(auth.Options{
 		VerifyHeader:              cfg.Proxy.VerifyHeader,
 		FingerprintHeader:         cfg.Proxy.FingerprintHeader,
@@ -133,6 +143,8 @@ func serve(cfg *config.Config, logger *slog.Logger) error {
 		MaxHeaderValueBytes:       cfg.Auth.MaxHeaderValueBytes,
 		MaxCommonNameLength:       cfg.Auth.MaxCommonNameLength,
 		MaxDistinguishedNameBytes: cfg.Auth.MaxDistinguishedNameBytes,
+		CertHeader:                strings.TrimSpace(cfg.Proxy.CertHeader),
+		ClientCAPool:              clientCAPool,
 	}, trustedPrefixes, logger)
 	if err != nil {
 		return err

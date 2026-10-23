@@ -166,6 +166,40 @@ proxy:
 	}
 }
 
+func TestCertificateHeaderSettings(t *testing.T) {
+	// client_ca_file alone would silently do nothing, so it is rejected.
+	path := writeConfig(t, `
+proxy:
+  client_ca_file: "/data/mtls/ca.crt"
+`)
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "proxy.client_ca_file") {
+		t.Fatalf("expected a client_ca_file error, got %v", err)
+	}
+
+	valid := writeConfig(t, `
+proxy:
+  cert_header: "X-Client-Cert"
+  client_ca_file: "/data/mtls/ca.crt"
+`)
+	loaded, err := Load(valid)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if loaded.Proxy.CertHeader != "X-Client-Cert" || loaded.Proxy.ClientCAFile != "/data/mtls/ca.crt" {
+		t.Fatalf("unexpected proxy config: %+v", loaded.Proxy)
+	}
+}
+
+func TestCertHeaderMustNotCollideWithIdentityHeaders(t *testing.T) {
+	path := writeConfig(t, `
+proxy:
+  cert_header: "X-Client-Verify"
+`)
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "duplicates") {
+		t.Fatalf("expected duplicate header error, got %v", err)
+	}
+}
+
 func TestNormalizeOrigin(t *testing.T) {
 	valid := map[string]string{
 		"https://app.example.com":  "https://app.example.com",

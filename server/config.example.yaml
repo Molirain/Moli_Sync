@@ -35,6 +35,18 @@ proxy:
   # handshake. Nginx emits "SUCCESS" for $ssl_client_verify.
   required_verify_value: "SUCCESS"              # MOLISYNC_PROXY_REQUIRED_VERIFY_VALUE
 
+  # Optional escape hatch for proxies that cannot compute a SHA-256 digest
+  # (nginx only exposes the SHA-1 $ssl_client_fingerprint). When set, the
+  # server accepts the whole PEM client certificate in this header, hashes it
+  # itself and uses that as the identity. Leave empty to disable.
+  #   nginx: proxy_set_header X-Client-Cert $ssl_client_escaped_cert;
+  cert_header: ""                               # MOLISYNC_PROXY_CERT_HEADER
+
+  # Optional: reject a certificate from cert_header that was not issued by this
+  # CA bundle. Strongly recommended whenever cert_header is enabled, because it
+  # turns the header into a verifiable chain instead of a trusted string.
+  client_ca_file: ""                            # MOLISYNC_PROXY_CLIENT_CA_FILE
+
 auth:
   # fingerprint: DeviceID is the SHA-256 certificate fingerprint (recommended).
   # dn_cn:       DeviceID is the CN of the certificate subject.

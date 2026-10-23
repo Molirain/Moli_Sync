@@ -44,6 +44,15 @@ services:
       MOLISYNC_PROXY_DN_HEADER: "X-Client-DN"
       MOLISYNC_PROXY_REQUIRED_VERIFY_VALUE: "SUCCESS"
 
+      # Nginx cannot compute a SHA-256 digest ($ssl_client_fingerprint is
+      # SHA-1). Forward the whole certificate instead and let the server hash
+      # it; without this, P2P cannot pin the peer and always uses the relay.
+      # nginx: proxy_set_header X-Client-Cert $ssl_client_escaped_cert;
+      # MOLISYNC_PROXY_CERT_HEADER: "X-Client-Cert"
+      # Mount the same CA into this container to have the server verify the
+      # chain as well (recommended):
+      # MOLISYNC_PROXY_CLIENT_CA_FILE: "/etc/molisync/client-ca.crt"
+
       # "fingerprint" (recommended) or "dn_cn".
       MOLISYNC_AUTH_DEVICE_ID_SOURCE: "fingerprint"
 
