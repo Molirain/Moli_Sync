@@ -55,7 +55,7 @@ class PeerConnector(
     suspend fun connect(request: TransferRequest, alias: String): PeerSession {
         val raced = raceCandidates(request.endpoints)
         try {
-            val trustManager = PeerFingerprintTrustManager(request.targetDeviceId)
+            val trustManager = PeerFingerprintTrustManager(request.pinFingerprint)
             val (sslContext, _) = withContext(Dispatchers.IO) {
                 keyChain.createSslContext(alias, trustManager)
             }
@@ -80,7 +80,7 @@ class PeerConnector(
 
                 val peer = sslSocket.session.peerCertificates.firstOrNull() as? X509Certificate
                     ?: throw TransferException("对端未提供证书")
-                if (sha256Hex(peer.encoded) != request.targetDeviceId) {
+                if (sha256Hex(peer.encoded) != request.pinFingerprint) {
                     throw TransferException("对端证书指纹与目标设备不匹配")
                 }
                 sslSocket.soTimeout = 0

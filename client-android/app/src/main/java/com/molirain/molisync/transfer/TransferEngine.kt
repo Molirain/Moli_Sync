@@ -2,6 +2,7 @@ package com.molirain.molisync.transfer
 
 import android.os.ParcelFileDescriptor
 import com.molirain.molisync.security.KeyChainAdapter
+import com.molirain.molisync.security.isCertificateFingerprint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
@@ -48,6 +49,8 @@ class TransferEngine(
                     sessionId = requireNotNull(request.sessionId),
                     ticket = requireNotNull(request.ticket),
                     deviceId = request.selfDeviceId.orEmpty(),
+                    deviceFingerprint = request.selfFingerprint.orEmpty()
+                        .ifBlank { request.selfDeviceId.orEmpty().takeIf { isCertificateFingerprint(it) }.orEmpty() },
                     deviceName = request.selfDeviceName.orEmpty(),
                     files = request.files.map { file ->
                         P2pFileMeta(name = file.name, size = file.size, mimeType = file.mimeType)

@@ -36,6 +36,7 @@ data class TransferFile(
 @Serializable
 data class TransferRequest(
     val targetDeviceId: String,
+    val targetFingerprint: String = "",
     val targetName: String,
     val endpoints: List<TransferEndpoint>,
     val files: List<TransferFile>,
@@ -44,13 +45,23 @@ data class TransferRequest(
     val relayUrl: String? = null,
     val serverUrl: String? = null,
     val selfDeviceId: String? = null,
+    val selfFingerprint: String? = null,
     val selfDeviceName: String? = null,
 ) {
+    /** Certificate digest used to pin the peer; falls back for older servers. */
+    val pinFingerprint: String
+        get() = targetFingerprint.ifBlank {
+            if (isCertificateFingerprint(targetDeviceId)) targetDeviceId else ""
+        }
+
     fun validate() {
-        if (!isCertificateFingerprint(targetDeviceId)) {
+        if (!isCertificateFingerprint(pinFingerprint)) {
             throw TransferValidationException(
-                "目标设备没有指纹型 DeviceID，无法安全校验 P2P 对端证书",
+                "目标设备没有证书指纹，无法安全校验 P2P 对端证书",
             )
+        }
+        if (selfFingerprint != null && selfFingerprint.isNotBlank() && !isCertificateFingerprint(selfFingerprint)) {
+            throw TransferValidationException("本机证书指纹不合法")
         }
         if (sessionId.isNullOrBlank() || ticket.isNullOrBlank()) {
             throw TransferValidationException("缺少服务器签发的 P2P 会话票据")

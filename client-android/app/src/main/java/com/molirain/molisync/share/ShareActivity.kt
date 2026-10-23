@@ -54,7 +54,6 @@ import com.molirain.molisync.data.ConnectionState
 import com.molirain.molisync.data.DeviceTarget
 import com.molirain.molisync.data.cloud.CloudKind
 import com.molirain.molisync.data.cloud.FileDigest
-import com.molirain.molisync.security.isCertificateFingerprint
 import com.molirain.molisync.transfer.TransferEndpoint
 import com.molirain.molisync.transfer.TransferFile
 import com.molirain.molisync.transfer.TransferNotifications
@@ -111,7 +110,7 @@ private fun ShareScreen(app: MoliSyncApp, payload: SharePayload, activity: Activ
     // why a transfer cannot start instead of an empty list.
     val availableDevices = remember(devices) {
         devices.values
-            .filter { isCertificateFingerprint(it.deviceId) }
+            .filter { it.pinFingerprint.isNotBlank() }
             .sortedBy { it.name.lowercase() }
     }
 
@@ -578,6 +577,7 @@ private suspend fun startTransfer(
 
         val request = TransferRequest(
             targetDeviceId = target.deviceId,
+            targetFingerprint = target.fingerprint.ifBlank { freshest.pinFingerprint },
             targetName = target.name,
             endpoints = freshest.endpoints.map {
                 TransferEndpoint(
@@ -600,6 +600,7 @@ private suspend fun startTransfer(
             relayUrl = session.relayUrl,
             serverUrl = app.settings.serverUrl,
             selfDeviceId = selfId,
+            selfFingerprint = app.settings.certificateFingerprint,
             selfDeviceName = app.settings.deviceName,
         )
         request.validate()

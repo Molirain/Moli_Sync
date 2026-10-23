@@ -9,6 +9,7 @@ import com.molirain.molisync.data.cloud.MediaStoreWriter
 import com.molirain.molisync.security.KeyChainAdapter
 import com.molirain.molisync.security.KeyChainException
 import com.molirain.molisync.security.PinnedPeerTrustManager
+import com.molirain.molisync.security.isCertificateFingerprint
 import com.molirain.molisync.security.sha256Hex
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -166,7 +167,11 @@ class P2pListener(
             if (ticket.fromDeviceId != manifest.deviceId) {
                 throw TransferException("P2P 发送方与票据不一致")
             }
-            if (sha256Hex(peer.encoded) != manifest.deviceId) {
+            val pinned = manifest.deviceFingerprint.ifBlank { manifest.deviceId }
+            if (!isCertificateFingerprint(pinned)) {
+                throw TransferException("对端未提供可校验的证书指纹")
+            }
+            if (sha256Hex(peer.encoded) != pinned) {
                 throw TransferException("对端证书指纹与会话声明不一致")
             }
             if (pending.remove(manifest.sessionId) == null) {

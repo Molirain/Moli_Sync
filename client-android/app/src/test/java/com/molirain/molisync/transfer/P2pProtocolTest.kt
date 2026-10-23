@@ -14,7 +14,8 @@ class P2pProtocolTest {
     private val manifest = P2pManifest(
         sessionId = "session-1",
         ticket = "dGlja2V0",
-        deviceId = "ab".repeat(32),
+        deviceId = "cn:study-pc",
+        deviceFingerprint = "ab".repeat(32),
         deviceName = "书房电脑",
         files = listOf(P2pFileMeta("photo.png", 2048, "image/png")),
     )
@@ -45,6 +46,13 @@ class P2pProtocolTest {
             .array()
         assertThrows(TransferException::class.java) {
             P2pProtocol.readManifest(ByteArrayInputStream(oversized))
+        }
+    }
+
+    @Test
+    fun `manifest rejects an unsupported device fingerprint`() {
+        assertThrows(TransferException::class.java) {
+            manifest.copy(deviceFingerprint = "not-a-fingerprint").validate()
         }
     }
 

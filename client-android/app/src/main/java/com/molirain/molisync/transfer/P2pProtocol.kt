@@ -1,5 +1,6 @@
 package com.molirain.molisync.transfer
 
+import com.molirain.molisync.security.isCertificateFingerprint
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.EOFException
@@ -77,6 +78,7 @@ data class P2pManifest(
     val sessionId: String,
     val ticket: String,
     val deviceId: String,
+    val deviceFingerprint: String = "",
     val deviceName: String = "",
     val files: List<P2pFileMeta>,
 ) {
@@ -89,6 +91,9 @@ data class P2pManifest(
         }
         if (deviceId.isBlank() || deviceId.length > 128) {
             throw TransferException("P2P 发送方身份不合法")
+        }
+        if (deviceFingerprint.isNotBlank() && !isCertificateFingerprint(deviceFingerprint)) {
+            throw TransferException("P2P 发送方证书指纹不合法")
         }
         if (files.isEmpty() || files.size > P2pProtocol.MAX_FILES) {
             throw TransferException("P2P 文件数量不合法")

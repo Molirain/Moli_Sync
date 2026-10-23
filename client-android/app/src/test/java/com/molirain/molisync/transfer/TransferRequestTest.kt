@@ -64,12 +64,32 @@ class TransferRequestTest {
     }
 
     @Test
-    fun `rejects a device id that is not a certificate fingerprint`() {
+    fun `rejects a target without a certificate fingerprint`() {
         assertThrows(TransferValidationException::class.java) {
             validRequest().copy(targetDeviceId = "device-1").validate()
         }
         assertThrows(TransferValidationException::class.java) {
-            validRequest().copy(targetDeviceId = "AB".repeat(32)).validate()
+            validRequest().copy(targetDeviceId = "device-1", targetFingerprint = "AB".repeat(32)).validate()
+        }
+    }
+
+    @Test
+    fun `accepts a logical device id when the fingerprint is supplied`() {
+        val request = validRequest().copy(
+            targetDeviceId = "cn:study-pc",
+            targetFingerprint = fingerprint,
+            selfDeviceId = "cn:pixel",
+            selfFingerprint = "cd".repeat(32),
+        )
+
+        request.validate()
+        assertEquals(fingerprint, request.pinFingerprint)
+    }
+
+    @Test
+    fun `rejects a malformed local fingerprint`() {
+        assertThrows(TransferValidationException::class.java) {
+            validRequest().copy(selfFingerprint = "not-a-fingerprint").validate()
         }
     }
 

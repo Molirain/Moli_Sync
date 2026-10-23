@@ -198,6 +198,26 @@ class CloudRepository(
         val displayPath: String,
     )
 
+    /**
+     * Downloads a server-rendered JPEG preview for an image record. Returns
+     * null when the server cannot preview the record (HTTP 415/404).
+     */
+    suspend fun thumbnail(recordId: String, width: Int = 480): ByteArray? = withContext(Dispatchers.IO) {
+        val url = apiUrl("api", "v1", "blobs", recordId, "thumb").newBuilder()
+            .addQueryParameter("w", width.coerceIn(64, 1024).toString())
+            .build()
+        val request = Request.Builder().url(url).get().build()
+        execute(request) { response ->
+            if (response.code == 415 || response.code == 404) {
+                return@execute null
+            }
+            if (!response.isSuccessful) {
+                throw CloudException(errorMessage(response.code, response.body?.string().orEmpty()))
+            }
+            response.body?.bytes()
+        }
+    }
+
     suspend fun delete(recordId: String) = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url(apiUrl("api", "v1", "records", recordId))

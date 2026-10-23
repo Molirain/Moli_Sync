@@ -34,6 +34,10 @@ class MoliSyncApp : Application() {
     lateinit var cloudRepository: CloudRepository
         private set
 
+    /** Server-rendered image previews, cached in memory and on disk. */
+    lateinit var thumbnails: com.molirain.molisync.data.cloud.ThumbnailLoader
+        private set
+
     lateinit var p2pListener: P2pListener
         private set
 
@@ -59,6 +63,9 @@ class MoliSyncApp : Application() {
         keyChain = KeyChainAdapter(this)
         deviceDirectory = DeviceDirectory()
         cloudRepository = CloudRepository(this, settings, keyChain)
+        thumbnails = com.molirain.molisync.data.cloud.ThumbnailLoader(
+            directory = java.io.File(cacheDir, "thumbs"),
+        ) { recordId -> runCatching { cloudRepository.thumbnail(recordId) }.getOrNull() }
         p2pListener = P2pListener(this, keyChain, settings)
         controlPlane = ControlPlaneClient(
             context = this,

@@ -3,6 +3,7 @@ package com.molirain.molisync.data
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import com.molirain.molisync.security.isCertificateFingerprint
 import java.net.InetAddress
 
 internal val ProtocolJson = Json {
@@ -45,7 +46,17 @@ data class DeviceDto(
     val platform: String = "",
     val endpoints: List<EndpointDto> = emptyList(),
     val connections: Int = 0,
-)
+    val fingerprint: String = "",
+) {
+    /**
+     * Digest used to pin the peer certificate. Server versions before 0.5 only
+     * sent the fingerprint as the DeviceID, so fall back to it.
+     */
+    val pinFingerprint: String
+        get() = fingerprint.ifBlank {
+            if (isCertificateFingerprint(deviceId)) deviceId else ""
+        }
+}
 
 @Serializable
 data class EnvelopeDto(
@@ -100,7 +111,14 @@ data class DeviceTarget(
     val name: String,
     val platform: String,
     val endpoints: List<DeviceEndpoint>,
-)
+    val fingerprint: String = "",
+) {
+    /** Certificate digest used for pinning; empty when the peer is unverifiable. */
+    val pinFingerprint: String
+        get() = fingerprint.ifBlank {
+            if (isCertificateFingerprint(deviceId)) deviceId else ""
+        }
+}
 
 private val IPV4 = Regex("""^(\d{1,3}\.){3}\d{1,3}$""")
 private val IPV6 = Regex("""^[0-9a-fA-F:]+$""")
@@ -140,5 +158,6 @@ fun DeviceDto.toTarget(): DeviceTarget? {
         name = name.ifBlank { "未命名设备" }.take(64),
         platform = platform.ifBlank { "unknown" },
         endpoints = normalizedEndpoints,
+        fingerprint = pinFingerprint,
     )
 }

@@ -5,11 +5,13 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -84,7 +86,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -225,6 +229,7 @@ fun HomeScreen(app: MoliSyncApp, onSettings: () -> Unit) {
                     records = state.ofKind(CloudKind.IMAGE),
                     downloading = state.downloading,
                     downloaded = state.downloaded,
+                    thumbnails = app.thumbnails,
                     onOpen = viewModel::open,
                     onActions = { actionsTarget = it },
                 )
@@ -354,6 +359,7 @@ fun HomeScreen(app: MoliSyncApp, onSettings: () -> Unit) {
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.delete(target)
+                    scope.launch { app.thumbnails.invalidate(target.recordId) }
                     deleteTarget = null
                 }) { Text("删除", color = MaterialTheme.colorScheme.error) }
             },
@@ -657,7 +663,9 @@ private fun HeroHeader(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
-                    color = Color(0xFFFFF9E9),
+                    // The launcher artwork is cream, so the tile must stay dark
+                    // or the logo disappears into the background.
+                    color = MoliColors.PineSoft,
                     shape = RoundedCornerShape(11.dp),
                     modifier = Modifier.size(34.dp),
                 ) {
@@ -906,6 +914,7 @@ private fun ImageTab(
     records: List<CloudRecord>,
     downloading: Map<String, DownloadProgress>,
     downloaded: Map<String, DownloadedFile>,
+    thumbnails: com.molirain.molisync.data.cloud.ThumbnailLoader,
     onOpen: (CloudRecord) -> Unit,
     onActions: (CloudRecord) -> Unit,
 ) {
@@ -926,6 +935,10 @@ private fun ImageTab(
     ) {
         gridItems(records, key = CloudRecord::recordId) { record ->
             val progress = downloading[record.recordId]
+            // A preview may be missing for non-image blobs; the gradient then
+            // stays as the placeholder instead of showing an empty tile.
+            var preview by remember(record.recordId) { mutableStateOf<Bitmap?>(null) }
+            LaunchedEffect(record.recordId) { preview = thumbnails.load(record.recordId) }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -937,12 +950,22 @@ private fun ImageTab(
                         onLongClick = { onActions(record) },
                     ),
             ) {
-                Icon(
-                    Icons.Outlined.Image,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.85f),
-                    modifier = Modifier.align(Alignment.Center).size(34.dp),
-                )
+                val bitmap = preview
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = record.displayName,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    Icon(
+                        Icons.Outlined.Image,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.align(Alignment.Center).size(34.dp),
+                    )
+                }
                 Surface(
                     color = Color.White.copy(alpha = 0.9f),
                     shape = CircleShape,
