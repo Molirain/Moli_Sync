@@ -98,11 +98,11 @@ Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服
 
 | 组件 | Tag | 触发 |
 | --- | --- | --- |
-| 服务端 | `server-v0.5.2` | 构建 `molisync-server` 镜像 |
+| 服务端 | `server-v0.5.3` | 构建 `molisync-server` 镜像 |
 | Windows | `desktop-v0.5.1` | 构建并发布便携版 zip |
-| Android | `android-v0.5.2` | 签名并发布 APK |
+| Android | `android-v0.5.3` | 签名并发布 APK |
 
-- 上面三个 tag 是当前实际发布版本，故意不一致：0.5.2 的服务端与安卓修复没有动桌面端，所以 Windows 仍停在 `desktop-v0.5.1`。
+- 上面三个 tag 是当前实际发布版本，故意不一致：0.5.3 的服务端与安卓修复没有动桌面端，所以 Windows 仍停在 `desktop-v0.5.1`。
 - 没有全局 `v*` tag：`v*` 不再触发任何构建，避免改一端连带发全量。
 - 客户端只在自己的命名空间里找 release（`desktop-v` / `android-v`），所以服务端或另一端的发布不会误报升级。
 - 升级提示依赖 GitHub Releases 的匿名读取，**仓库必须公开**；未公开时客户端静默不提示，服务端日志会写明原因。

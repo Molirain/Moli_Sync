@@ -98,11 +98,11 @@ All components share a MAJOR.MINOR baseline (the protocol-compatibility generati
 
 | Component | Tag | Builds |
 | --- | --- | --- |
-| Server | `server-v0.5.2` | `molisync-server` image |
+| Server | `server-v0.5.3` | `molisync-server` image |
 | Windows | `desktop-v0.5.1` | Portable zip release |
-| Android | `android-v0.5.2` | Signed APK release |
+| Android | `android-v0.5.3` | Signed APK release |
 
-- The three tags above are the current releases and deliberately differ: the 0.5.2 server and Android fixes did not touch the desktop client, so `desktop-v0.5.1` stays the newest Windows build.
+- The three tags above are the current releases and deliberately differ: the 0.5.3 server and Android fixes did not touch the desktop client, so `desktop-v0.5.1` stays the newest Windows build.
 - There is no umbrella `v*` tag; `v*` triggers nothing, so a single-client fix cannot publish everything.
 - Each client only reads its own namespace (`desktop-v` / `android-v`), so a server or sibling release never shows up as an update.
 - Update prompts use GitHub Releases, which requires a **public** repository. On a private repository clients stay silent and the server log states why.
