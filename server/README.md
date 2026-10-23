@@ -233,7 +233,7 @@ P2P 信令：客户端发送 `open_session`（`to_device_id`，可选 `transfer_
 - `GET /api/v1/me` 额外返回 `server_version` 与 `server_update`；客户端据此提示“服务端需要升级”，无需自己查询 GitHub。
 - 设备活跃度在 `hello` 时写入 `devices` 表，标识是 `HMAC-SHA256(每部署随机盐, 证书指纹)`，数据库里没有可逆指纹。
 - `telemetry` 段控制**首次安装上报**：设备第一次连上服务端时 POST 一次事件，之后不再上报。默认 `endpoint` 为空即关闭；事件只含部署内唯一的哈希 ID、平台与版本，不含设备标识、名称、IP 或记录内容。
-- 计数端是 Cloudflare Worker + D1（见 [`worker/`](../worker/)），按主键去重，服务端重试不会重复计数。`GET /v1/stats?format=text` 输出安装数、部署数与平台分布。
+- 计数端是项目自建的公开端点 `https://statistics-api.molirain.com/install`（Cloudflare Worker + D1，独立私有仓库维护），按主键去重，服务端重试不会重复计数。默认启用，`MOLISYNC_TELEMETRY_ENABLED=false` 可关闭。
 - `update_check` 段控制服务端自检，每 12 小时读一次 `server-vX.Y.Z` release；`version` 为 `dev` 的开发构建会自动跳过。
 
 发布使用分端 tag：`server-vX.Y.Z` 只构建服务端镜像，`desktop-vX.Y.Z` 与 `android-vX.Y.Z` 互不影响。
