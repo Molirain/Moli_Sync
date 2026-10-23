@@ -24,16 +24,21 @@ public sealed class P2pSender
     private readonly Uri _serverUri;
     private readonly IClientLog _log;
 
+    /// <summary>This client's server-assigned DeviceID, used as the manifest sender.</summary>
+    private readonly Func<string> _selfDeviceId;
+
     public P2pSender(
         ClientIdentity identity,
         PinnedServerCertificateValidator serverValidator,
         Uri serverUri,
-        IClientLog log)
+        IClientLog log,
+        Func<string>? selfDeviceId = null)
     {
         _identity = identity ?? throw new ArgumentNullException(nameof(identity));
         _serverValidator = serverValidator ?? throw new ArgumentNullException(nameof(serverValidator));
         _serverUri = serverUri ?? throw new ArgumentNullException(nameof(serverUri));
         _log = log ?? throw new ArgumentNullException(nameof(log));
+        _selfDeviceId = selfDeviceId ?? (() => identity.DeviceId);
     }
 
     public async Task SendAsync(
@@ -105,7 +110,7 @@ public sealed class P2pSender
             {
                 SessionId = session.SessionId,
                 Ticket = session.Ticket,
-                DeviceId = _identity.DeviceId,
+                DeviceId = _selfDeviceId(),
                 DeviceFingerprint = _identity.DeviceId,
                 DeviceName = deviceName,
                 Files = files.ToList(),

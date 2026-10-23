@@ -25,6 +25,7 @@ public sealed class P2pListener : IAsyncDisposable
     private readonly ConcurrentDictionary<string, P2pSession> _pending = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _cancellation = new();
     private Func<P2pSession, CancellationToken, Task<Stream>>? _relayOpener;
+    private Func<string> _selfDeviceId = () => string.Empty;
     private TcpListener? _listener;
     private Task? _acceptLoop;
 
@@ -33,6 +34,7 @@ public sealed class P2pListener : IAsyncDisposable
         _identity = identity ?? throw new ArgumentNullException(nameof(identity));
         _dataDirectory = dataDirectory ?? throw new ArgumentNullException(nameof(dataDirectory));
         _log = log ?? throw new ArgumentNullException(nameof(log));
+        _selfDeviceId = () => identity.DeviceId;
     }
 
     public event Action<string>? FileReceived;
@@ -40,6 +42,14 @@ public sealed class P2pListener : IAsyncDisposable
     public int Port { get; private set; }
 
     public IReadOnlyList<EndpointModel> Endpoints() => LocalEndpoints.Candidates(Port);
+
+    /// <summary>
+    /// Supplies the DeviceID the server assigned to this client. It differs
+    /// from the certificate fingerprint when the server derives identity from
+    /// the certificate common name, and session tickets carry that value.
+    /// </summary>
+    public void UseSelfDeviceId(Func<string> provider) =>
+        _selfDeviceId = provider ?? (() => _identity.DeviceId);
 
     public void Start()
     {
@@ -184,7 +194,7 @@ public sealed class P2pListener : IAsyncDisposable
                 {
                     throw new InvalidDataException("no pending P2P session for this connection");
                 }
-                if (!string.Equals(session.ToDeviceId, _identity.DeviceId, StringComparison.Ordinal))
+                if (!string.Equals(session.ToDeviceId, _selfDeviceId(), StringComparison.Ordinal))
                 {
                     throw new InvalidDataException("session does not belong to this device");
                 }

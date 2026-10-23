@@ -55,7 +55,9 @@ data class TransferRequest(
         }
 
     fun validate() {
-        if (!isCertificateFingerprint(pinFingerprint)) {
+        // A relay-only session is authenticated by the server-issued ticket and
+        // needs no certificate pin; a direct link always does.
+        if (endpoints.isNotEmpty() && !isCertificateFingerprint(pinFingerprint)) {
             throw TransferValidationException(
                 "目标设备没有证书指纹，无法安全校验 P2P 对端证书",
             )

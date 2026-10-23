@@ -122,31 +122,34 @@ class TransferEngine(
      * deadline the stream falls back to the server relay for the same session.
      */
     private suspend fun openSession(request: TransferRequest, alias: String): PeerSession {
-        try {
-            return connector.connect(request, alias)
-        } catch (direct: Exception) {
-            val relayUrl = request.relayUrl
-                ?: throw TransferException(direct.message ?: "P2P 直连失败", direct)
-            val serverUrl = request.serverUrl
-                ?: throw TransferException("缺少服务器地址，无法回退中继", direct)
-            val ticket = request.ticket
-                ?: throw TransferException("缺少 P2P 会话票据", direct)
-            return try {
-                val streams = RelayTransport.connect(
-                    context = context,
-                    keyChain = keyChain,
-                    alias = alias,
-                    serverUrl = serverUrl,
-                    relayUrl = relayUrl,
-                    ticket = ticket,
-                )
-                PeerSession(streams, streams.input, streams.output)
-            } catch (relay: Exception) {
-                throw TransferException(
-                    (direct.message ?: "P2P 直连失败") + "；中继也失败：" + (relay.message ?: "未知错误"),
-                    relay,
-                )
+        val direct: Exception? = if (request.endpoints.isEmpty()) {
+            null
+        } else {
+            try {
+                return connector.connect(request, alias)
+            } catch (failure: Exception) {
+                failure
             }
+        }
+        val relayUrl = request.relayUrl
+            ?: throw TransferException(direct?.message ?: "目标设备没有可用的 P2P 地址", direct)
+        val serverUrl = request.serverUrl
+            ?: throw TransferException("缺少服务器地址，无法回退中继", direct)
+        val ticket = request.ticket
+            ?: throw TransferException("缺少 P2P 会话票据", direct)
+        return try {
+            val streams = RelayTransport.connect(
+                context = context,
+                keyChain = keyChain,
+                alias = alias,
+                serverUrl = serverUrl,
+                relayUrl = relayUrl,
+                ticket = ticket,
+            )
+            PeerSession(streams, streams.input, streams.output)
+        } catch (relay: Exception) {
+            val prefix = direct?.message?.let { "$it；中继也失败：" } ?: "中继失败："
+            throw TransferException(prefix + (relay.message ?: "未知错误"), relay)
         }
     }
 }

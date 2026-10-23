@@ -53,6 +53,24 @@ class P2pListener(
     var selfDeviceId: String? = null
         private set
 
+    /**
+     * DeviceID assigned by the server. It differs from the certificate
+     * fingerprint when the server derives identity from the common name, and
+     * session tickets always carry this value.
+     */
+    @Volatile
+    private var serverDeviceIdProvider: (() -> String?)? = null
+
+    fun useServerDeviceId(provider: () -> String?) {
+        serverDeviceIdProvider = provider
+    }
+
+    /** True when the ticket was issued for this device. */
+    fun isForSelf(ticket: SessionTicket): Boolean {
+        val self = serverDeviceIdProvider?.invoke() ?: selfDeviceId ?: return false
+        return ticket.toDeviceId == self
+    }
+
     fun endpoints() = NetworkEndpoints.candidates(port)
 
     fun start() {
@@ -158,7 +176,7 @@ class P2pListener(
 
             val ticket = pending[manifest.sessionId]
                 ?: throw TransferException("没有等待中的 P2P 会话")
-            if (selfDeviceId != null && ticket.toDeviceId != selfDeviceId) {
+            if (!isForSelf(ticket)) {
                 throw TransferException("P2P 会话不属于本机")
             }
             if (ticket.ticket != manifest.ticket) {

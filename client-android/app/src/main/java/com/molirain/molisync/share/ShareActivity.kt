@@ -109,9 +109,7 @@ private fun ShareScreen(app: MoliSyncApp, payload: SharePayload, activity: Activ
     // Devices are listed even before they report endpoints, so the user sees
     // why a transfer cannot start instead of an empty list.
     val availableDevices = remember(devices) {
-        devices.values
-            .filter { it.pinFingerprint.isNotBlank() }
-            .sortedBy { it.name.lowercase() }
+        devices.values.sortedBy { it.name.lowercase() }
     }
 
     LaunchedEffect(Unit) {
@@ -466,7 +464,14 @@ private fun DeviceRow(device: DeviceTarget, selected: Boolean, onSelect: () -> U
         Column(modifier = Modifier.padding(start = 4.dp)) {
             Text(device.name, style = MaterialTheme.typography.bodyLarge)
             Text(
-                "${device.platform} · ${device.endpoints.size} 个 P2P 地址",
+                // A device without a certificate fingerprint can only be
+                // reached through the server relay, because the peer cannot be
+                // pinned during a direct TLS handshake.
+                if (device.pinFingerprint.isBlank()) {
+                    "${device.platform} · 经服务端中继传输"
+                } else {
+                    "${device.platform} · ${device.endpoints.size} 个 P2P 地址"
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -579,13 +584,19 @@ private suspend fun startTransfer(
             targetDeviceId = target.deviceId,
             targetFingerprint = target.fingerprint.ifBlank { freshest.pinFingerprint },
             targetName = target.name,
-            endpoints = freshest.endpoints.map {
-                TransferEndpoint(
-                    network = it.network,
-                    ip = it.ip,
-                    port = it.port,
-                    priority = it.priority,
-                )
+            // Without a pinnable fingerprint the peer cannot be authenticated
+            // on a direct TLS link, so the session uses the server relay.
+            endpoints = if (target.pinFingerprint.isBlank()) {
+                emptyList()
+            } else {
+                freshest.endpoints.map {
+                    TransferEndpoint(
+                        network = it.network,
+                        ip = it.ip,
+                        port = it.port,
+                        priority = it.priority,
+                    )
+                }
             },
             files = payload.files.map {
                 TransferFile(

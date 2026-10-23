@@ -24,6 +24,26 @@ public sealed class AppSession : IAsyncDisposable
     private readonly CancellationTokenSource _cancellation = new();
     private Task? _controlTask;
     private bool _disposed;
+    private string? _assignedDeviceId;
+
+    private string SelfDeviceId() =>
+        Volatile.Read(ref _assignedDeviceId) is { Length: > 0 } assigned ? assigned : Identity.DeviceId;
+
+    private void OnWelcome(WelcomeState state)
+    {
+        if (!string.IsNullOrWhiteSpace(state.DeviceId))
+        {
+            Volatile.Write(ref _assignedDeviceId, state.DeviceId);
+        }
+    }
+
+    private void OnSessionTicketReceived(P2pSession ticket)
+    {
+        if (string.Equals(ticket.ToDeviceId, SelfDeviceId(), StringComparison.Ordinal))
+        {
+            P2p.Register(ticket);
+        }
+    }
     private AppSession(
         AppSettings settings,
         PinnedCertificateAuthority? authority,
@@ -71,11 +91,20 @@ public sealed class AppSession : IAsyncDisposable
     /// <summary>Desktop-only release check; the cache lives in the data directory.</summary>
     public UpdateChecker Updates { get; }
 
-    public string DeviceId => Identity.DeviceId;
+    /// <summary>
+    /// DeviceID this client has on the server. It matches the certificate
+    /// fingerprint unless the server derives identity from the common name.
+    /// </summary>
+    public string DeviceId => SelfDeviceId();
 
     /// <summary>Sender bound to this session's certificate and trust policy.</summary>
     public P2pSender CreateP2pSender() =>
-        new(Identity, _serverValidator, new Uri(Settings.ServerUrl.TrimEnd('/') + "/", UriKind.Absolute), _log);
+        new(
+            Identity,
+            _serverValidator,
+            new Uri(Settings.ServerUrl.TrimEnd('/') + "/", UriKind.Absolute),
+            _log,
+            SelfDeviceId);
 
     public static AppSession Create(AppSettings settings, IClientLog log)
     {
@@ -129,22 +158,10 @@ public sealed class AppSession : IAsyncDisposable
             // first hello already advertises a real port.
             var p2p = new P2pListener(identity, settings.DataDirectory, log);
             p2p.Start();
-            var p2pSender = new P2pSender(
-                identity,
-                validator,
-                new Uri(settings.ServerUrl.TrimEnd('/') + "/", UriKind.Absolute),
-                log);
-            p2p.UseRelay(p2pSender.OpenRelayStreamAsync);
             control.EndpointProvider = () => p2p.Endpoints();
-            control.SessionTicketReceived += session =>
-            {
-                if (string.Equals(session.ToDeviceId, identity.DeviceId, StringComparison.Ordinal))
-                {
-                    p2p.Register(session);
-                }
-            };
-
-            return new AppSession(
+            // The welcome frame carries the DeviceID the server assigned, which
+            // is derived from the certificate common name in dn_cn mode.
+            var appSession = new AppSession(
                 settings,
                 authority,
                 identity,
@@ -158,6 +175,12 @@ public sealed class AppSession : IAsyncDisposable
                 validator,
                 updates,
                 log);
+            control.SessionTicketReceived += appSession.OnSessionTicketReceived;
+            dispatcher.WelcomeReceived += appSession.OnWelcome;
+            p2p.UseSelfDeviceId(appSession.SelfDeviceId);
+            p2p.UseRelay(appSession.CreateP2pSender().OpenRelayStreamAsync);
+
+            return appSession;
         }
         catch
         {

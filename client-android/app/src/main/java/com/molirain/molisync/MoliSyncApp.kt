@@ -3,6 +3,7 @@ package com.molirain.molisync
 import android.app.Application
 import com.molirain.molisync.data.AppUpdate
 import com.molirain.molisync.data.ClientSettings
+import com.molirain.molisync.data.ConnectionState
 import com.molirain.molisync.data.ControlPlaneClient
 import com.molirain.molisync.data.DeviceDirectory
 import com.molirain.molisync.data.UpdateChecker
@@ -77,10 +78,15 @@ class MoliSyncApp : Application() {
             endpoints = { p2pListener.endpoints() },
         )
         TransferNotifications.createChannel(this)
+        // The server may name this device after its certificate common name,
+        // while the ticket always carries the server-assigned DeviceID.
+        p2pListener.useServerDeviceId {
+            (controlPlane.state.value as? ConnectionState.Connected)?.deviceId
+        }
 
         applicationScope.launch {
             controlPlane.sessionTickets.collect { ticket ->
-                if (ticket.toDeviceId != p2pListener.selfDeviceId) {
+                if (!p2pListener.isForSelf(ticket)) {
                     return@collect
                 }
                 p2pListener.register(ticket)

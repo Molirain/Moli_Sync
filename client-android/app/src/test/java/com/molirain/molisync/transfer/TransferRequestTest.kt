@@ -64,13 +64,23 @@ class TransferRequestTest {
     }
 
     @Test
-    fun `rejects a target without a certificate fingerprint`() {
+    fun `rejects a direct transfer without a certificate fingerprint`() {
         assertThrows(TransferValidationException::class.java) {
             validRequest().copy(targetDeviceId = "device-1").validate()
         }
         assertThrows(TransferValidationException::class.java) {
             validRequest().copy(targetDeviceId = "device-1", targetFingerprint = "AB".repeat(32)).validate()
         }
+    }
+
+    @Test
+    fun `relay only transfer works without a fingerprint`() {
+        validRequest().copy(
+            endpoints = emptyList(),
+            relayUrl = "/api/v1/relay/session-1",
+            targetDeviceId = "cn:study-pc",
+            targetFingerprint = "",
+        ).validate()
     }
 
     @Test
