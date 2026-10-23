@@ -67,6 +67,7 @@ The Android client implements this model in three tabs (text, images, files). Th
 | `POST /api/v1/records/text` | Store a text record and broadcast it |
 | `POST /api/v1/records/blob` | Stream an image/file body (`kind`, `name`, `mime`, optional `X-Blake3`) |
 | `GET /api/v1/blobs/{id}` | Download a blob, with Range support |
+| `GET /api/v1/blobs/{id}/thumb` | Server-rendered JPEG preview (`?w=64..1024`), cached on disk |
 | `DELETE /api/v1/records/{id}` | Delete your own record and blob |
 | `GET /api/v1/relay/{session_id}` | Relay byte stream (`X-Session-Ticket`, hijacked and forwarded both ways) |
 | `GET /api/v1/stats` | Local counters (devices, activity, records, storage); requires a device identity |

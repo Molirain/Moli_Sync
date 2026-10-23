@@ -67,6 +67,7 @@ Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服
 | `POST /api/v1/records/text` | 保存文字记录并广播 |
 | `POST /api/v1/records/blob` | 流式上传图片/文件（`kind`、`name`、`mime`，可选 `X-Blake3`） |
 | `GET /api/v1/blobs/{id}` | 下载 blob，支持 Range |
+| `GET /api/v1/blobs/{id}/thumb` | 服务端渲染的 JPEG 预览（`?w=64..1024`），磁盘缓存 |
 | `DELETE /api/v1/records/{id}` | 删除自己的记录与 blob |
 | `GET /api/v1/relay/{session_id}` | 中继字节流（`X-Session-Ticket`，连接劫持后双向转发） |
 | `GET /api/v1/stats` | 本部署统计（设备/活跃/记录/存储），需设备身份 |

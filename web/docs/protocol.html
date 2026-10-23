@@ -113,6 +113,7 @@
     <tr><td><code>POST /api/v1/records/text</code></td><td>Store a text record and broadcast it.</td></tr>
     <tr><td><code>POST /api/v1/records/blob</code></td><td>Stream an image or file body with <code>kind</code>, <code>name</code>, <code>mime</code> and optional <code>X-Blake3</code>.</td></tr>
     <tr><td><code>GET /api/v1/blobs/{id}</code></td><td>Download a blob, with HTTP Range support.</td></tr>
+    <tr><td><code>GET /api/v1/blobs/{id}/thumb</code></td><td>Image preview: server-rendered JPEG, <code>w=64..1024</code> (default 320), cached on disk.</td></tr>
     <tr><td><code>DELETE /api/v1/records/{id}</code></td><td>Delete your own record and blob.</td></tr>
     <tr><td><code>GET /api/v1/relay/{session_id}</code></td><td>Relay byte stream using <code>X-Session-Ticket</code>; the connection is hijacked and forwarded both ways.</td></tr>
   </tbody>

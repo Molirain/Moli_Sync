@@ -10,6 +10,7 @@
     <tr><td><code>POST /api/v1/records/text</code></td><td>保存文字记录并广播。</td></tr>
     <tr><td><code>POST /api/v1/records/blob</code></td><td>流式上传图片/文件，携带 <code>kind</code>、<code>name</code>、<code>mime</code> 与可选的 <code>X-Blake3</code>。</td></tr>
     <tr><td><code>GET /api/v1/blobs/{id}</code></td><td>下载 blob，支持 HTTP Range。</td></tr>
+    <tr><td><code>GET /api/v1/blobs/{id}/thumb</code></td><td>图片预览：服务端渲染的 JPEG，<code>w=64..1024</code>（默认 320），磁盘缓存。</td></tr>
     <tr><td><code>DELETE /api/v1/records/{id}</code></td><td>删除自己的记录与 blob。</td></tr>
     <tr><td><code>GET /api/v1/relay/{session_id}</code></td><td>使用 <code>X-Session-Ticket</code> 中继字节流；连接被劫持后双向转发。</td></tr>
   </tbody>
