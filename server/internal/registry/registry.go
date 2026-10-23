@@ -35,6 +35,7 @@ var platformPattern = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,15}$`)
 // Device is an immutable snapshot of a registered device.
 type Device struct {
 	ID          string
+	Fingerprint string
 	CommonName  string
 	Name        string
 	Platform    string
@@ -111,8 +112,10 @@ func ValidateIdentity(deviceID, commonName string) error {
 }
 
 // Connect registers a connection for a device and returns the updated snapshot.
-// The returned bool reports whether this is a newly seen device.
-func (r *Registry) Connect(deviceID, commonName, name, platform string, endpoints []Endpoint) (Device, bool, error) {
+// The returned bool reports whether this is a newly seen device. fingerprint is
+// the certificate digest, which stays available even when DeviceID is derived
+// from the common name; peers pin P2P connections to it.
+func (r *Registry) Connect(deviceID, fingerprint, commonName, name, platform string, endpoints []Endpoint) (Device, bool, error) {
 	if err := ValidateIdentity(deviceID, commonName); err != nil {
 		return Device{}, false, err
 	}
@@ -138,6 +141,7 @@ func (r *Registry) Connect(deviceID, commonName, name, platform string, endpoint
 		r.devices[deviceID] = device
 	}
 	device.CommonName = commonName
+	device.Fingerprint = fingerprint
 	device.Name = name
 	device.Platform = platform
 	device.Endpoints = normalizedEndpoints

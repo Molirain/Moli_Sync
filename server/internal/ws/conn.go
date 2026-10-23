@@ -194,6 +194,7 @@ func (c *connection) handleHello(message inbound) bool {
 
 	device, created, err := c.hub.devices.Connect(
 		c.identity.DeviceID,
+		c.identity.Fingerprint,
 		c.identity.CommonName,
 		name,
 		platform,

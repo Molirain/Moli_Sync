@@ -77,6 +77,7 @@ type deviceMetadata struct {
 // DeviceView is the JSON representation of a registered device.
 type DeviceView struct {
 	DeviceID    string              `json:"device_id"`
+	Fingerprint string              `json:"fingerprint,omitempty"`
 	CommonName  string              `json:"common_name,omitempty"`
 	Name        string              `json:"name"`
 	Platform    string              `json:"platform"`
@@ -93,6 +94,7 @@ func newDeviceView(device registry.Device) DeviceView {
 	}
 	return DeviceView{
 		DeviceID:    device.ID,
+		Fingerprint: device.Fingerprint,
 		CommonName:  device.CommonName,
 		Name:        device.Name,
 		Platform:    device.Platform,

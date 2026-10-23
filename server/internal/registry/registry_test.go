@@ -8,6 +8,11 @@ import (
 	"time"
 )
 
+const (
+	fingerprint      = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	otherFingerprint = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+)
+
 func TestNormalizeEndpoints(t *testing.T) {
 	input := []Endpoint{
 		{Network: "LAN", IP: "192.168.1.20", Port: 9527},
@@ -65,7 +70,7 @@ func TestRegistryConnectionLifecycle(t *testing.T) {
 	registry := New(4, 4, now)
 
 	endpoints := []Endpoint{{Network: NetworkLAN, IP: "192.168.1.20", Port: 9527}}
-	device, created, err := registry.Connect("aaaaaaaa", "phone-a", "Phone A", "android", endpoints)
+	device, created, err := registry.Connect("aaaaaaaa", fingerprint, "phone-a", "Phone A", "android", endpoints)
 	if err != nil {
 		t.Fatalf("Connect: %v", err)
 	}
@@ -73,7 +78,7 @@ func TestRegistryConnectionLifecycle(t *testing.T) {
 		t.Fatalf("unexpected initial state: %+v", device)
 	}
 
-	device, created, err = registry.Connect("aaaaaaaa", "phone-a", "Phone A", "android", endpoints)
+	device, created, err = registry.Connect("aaaaaaaa", fingerprint, "phone-a", "Phone A", "android", endpoints)
 	if err != nil {
 		t.Fatalf("second Connect: %v", err)
 	}
@@ -97,7 +102,7 @@ func TestRegistryConnectionLifecycle(t *testing.T) {
 func TestRegistryHeartbeatEndpointChanges(t *testing.T) {
 	registry := New(4, 4, nil)
 	initial := []Endpoint{{Network: NetworkLAN, IP: "192.168.1.20", Port: 9527}}
-	if _, _, err := registry.Connect("aaaaaaaa", "phone-a", "Phone A", "android", initial); err != nil {
+	if _, _, err := registry.Connect("aaaaaaaa", fingerprint, "phone-a", "Phone A", "android", initial); err != nil {
 		t.Fatalf("Connect: %v", err)
 	}
 
@@ -132,10 +137,10 @@ func TestRegistryHeartbeatEndpointChanges(t *testing.T) {
 
 func TestRegistryDeviceLimit(t *testing.T) {
 	registry := New(1, 4, nil)
-	if _, _, err := registry.Connect("aaaaaaaa", "", "A", "linux", nil); err != nil {
+	if _, _, err := registry.Connect("aaaaaaaa", fingerprint, "", "A", "linux", nil); err != nil {
 		t.Fatalf("Connect: %v", err)
 	}
-	if _, _, err := registry.Connect("bbbbbbbb", "", "B", "linux", nil); !errors.Is(err, ErrTooManyDevices) {
+	if _, _, err := registry.Connect("bbbbbbbb", otherFingerprint, "", "B", "linux", nil); !errors.Is(err, ErrTooManyDevices) {
 		t.Fatalf("expected ErrTooManyDevices, got %v", err)
 	}
 }
@@ -143,7 +148,7 @@ func TestRegistryDeviceLimit(t *testing.T) {
 func TestRegistrySweep(t *testing.T) {
 	clock := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	registry := New(4, 4, func() time.Time { return clock })
-	if _, _, err := registry.Connect("aaaaaaaa", "", "A", "linux", nil); err != nil {
+	if _, _, err := registry.Connect("aaaaaaaa", fingerprint, "", "A", "linux", nil); err != nil {
 		t.Fatalf("Connect: %v", err)
 	}
 
@@ -164,7 +169,7 @@ func TestRegistrySweep(t *testing.T) {
 func TestRegistrySnapshotIsCopy(t *testing.T) {
 	registry := New(4, 4, nil)
 	endpoints := []Endpoint{{Network: NetworkLAN, IP: "192.168.1.20", Port: 9527}}
-	if _, _, err := registry.Connect("aaaaaaaa", "", "A", "linux", endpoints); err != nil {
+	if _, _, err := registry.Connect("aaaaaaaa", fingerprint, "", "A", "linux", endpoints); err != nil {
 		t.Fatalf("Connect: %v", err)
 	}
 	snapshot := registry.Snapshot()
@@ -189,7 +194,7 @@ func TestRegistryConcurrentAccess(t *testing.T) {
 			defer waitGroup.Done()
 			deviceID := "device-" + strings.Repeat("x", worker)
 			for iteration := 0; iteration < 50; iteration++ {
-				if _, _, err := registry.Connect(deviceID, "", "Device", "linux", nil); err != nil {
+				if _, _, err := registry.Connect(deviceID, "", "", "Device", "linux", nil); err != nil {
 					t.Errorf("Connect: %v", err)
 					return
 				}
