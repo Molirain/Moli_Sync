@@ -274,6 +274,19 @@ Android release signing requires these repository secrets: `ANDROID_KEYSTORE_BAS
 
 The same sync-and-file mark is used for the Android launcher/notification icon, the Windows executable icon and this page. The server exposes only HTTP/WebSocket APIs, so it has no graphical surface to brand; [`assets/branding/`](assets/branding/) keeps the shared source for future UIs.
 
+## Sponsoring
+
+MoliSync is free and self-hosted, with no paid tier or feature locks. If it saves you time and you want to support its maintenance:
+
+| Network | Asset | Address |
+| --- | --- | --- |
+| Bitcoin | BTC | `bc1qpg9zclz34wp7wlkhk6jg9aekvv855t24t5jymh` |
+| TRON (TRC20) | USDT | `TTjpRRXug2XeWTzg7En7oxDPg1QAUoyrpi` |
+| BNB Smart Chain (BEP20) | USDT | `0x940dB7A2fB67078108017312BFCB90Ec05fA5CC1` |
+
+- Send only the listed asset on the listed network; **a wrong network loses the funds permanently**.
+- These addresses are authoritative only in the `master` branch of this repository. Do not trust addresses shown on forks or third-party pages.
+
 ## License
 
 No repository-wide license has been declared yet. Until a license is added, do not assume that source code may be redistributed or reused.

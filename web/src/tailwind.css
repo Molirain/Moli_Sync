@@ -166,6 +166,18 @@
     @apply text-muted transition-colors duration-150 ease-out hover:text-fg;
   }
 
+  .sponsor-dialog {
+    @apply w-[min(560px,calc(100vw-2rem))] max-w-none border border-line bg-panel p-0 text-fg;
+  }
+
+  .sponsor-dialog::backdrop {
+    background: rgb(15 18 19 / 0.72);
+  }
+
+  .sponsor-row {
+    @apply flex items-center justify-between gap-3 border border-line-soft bg-deep px-3 py-2.5;
+  }
+
   .copy-buffer {
     position: fixed;
     top: -1000px;

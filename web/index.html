@@ -439,12 +439,57 @@
       <div class="flex flex-col gap-2 pt-5 font-mono text-[9.5px] uppercase tracking-[0.08em] text-faint sm:flex-row sm:items-center sm:justify-between">
         <span>© <span id="year">2026</span> MoliSync</span>
         <span data-i18n="footer.license">No repository-wide license has been declared yet.</span>
-        <a class="link-quiet hover:text-accent" href="privacy.html" data-i18n="footer.links.privacy">Privacy</a>
-        <a class="link-quiet hover:text-accent" href="#top" data-i18n="footer.links.top">Back to top ↑</a>
+        <span class="flex flex-wrap items-center gap-4">
+          <button type="button" class="link-quiet hover:text-accent uppercase tracking-[0.08em]" data-sponsor-open data-i18n="footer.sponsor">Sponsor</button>
+          <a class="link-quiet hover:text-accent" href="privacy.html" data-i18n="footer.links.privacy">Privacy</a>
+          <a class="link-quiet hover:text-accent" href="#top" data-i18n="footer.links.top">Back to top ↑</a>
+        </span>
       </div>
     </div>
   </footer>
 
   <script defer src="assets/js/main.js"></script>
+
+  <dialog id="sponsor-dialog" class="sponsor-dialog" aria-labelledby="sponsor-title">
+    <div class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <div>
+        <p class="mono-label" data-i18n="sponsor.eyebrow">Sponsor</p>
+        <h2 id="sponsor-title" class="mt-1.5 text-[15px] font-medium tracking-[-0.01em]" data-i18n="sponsor.title">Support MoliSync</h2>
+      </div>
+      <button type="button" class="link-quiet px-1 text-[15px] leading-none" data-sponsor-close data-i18n-attr="aria-label:sponsor.close" aria-label="Close">✕</button>
+    </div>
+
+    <div class="px-5 py-4">
+      <p class="text-[12.5px] leading-6 text-muted" data-i18n="sponsor.lead">MoliSync stays free and self-hosted. Donations never unlock features.</p>
+
+      <div class="mt-4 flex flex-col gap-2">
+        <div class="sponsor-row">
+          <div class="min-w-0">
+            <p class="mono-label" data-i18n="sponsor.btc">Bitcoin · BTC</p>
+            <p class="mt-1 break-all font-mono text-[11px] leading-5 text-[#B9C3C1] select-all">bc1qpg9zclz34wp7wlkhk6jg9aekvv855t24t5jymh</p>
+          </div>
+          <button type="button" class="btn-ghost shrink-0 border px-2.5 py-1 text-[10px]" data-copy-value="bc1qpg9zclz34wp7wlkhk6jg9aekvv855t24t5jymh" data-i18n="sponsor.copy">Copy</button>
+        </div>
+
+        <div class="sponsor-row">
+          <div class="min-w-0">
+            <p class="mono-label" data-i18n="sponsor.tron">TRON · TRC20 USDT</p>
+            <p class="mt-1 break-all font-mono text-[11px] leading-5 text-[#B9C3C1] select-all">TTjpRRXug2XeWTzg7En7oxDPg1QAUoyrpi</p>
+          </div>
+          <button type="button" class="btn-ghost shrink-0 border px-2.5 py-1 text-[10px]" data-copy-value="TTjpRRXug2XeWTzg7En7oxDPg1QAUoyrpi" data-i18n="sponsor.copy">Copy</button>
+        </div>
+
+        <div class="sponsor-row">
+          <div class="min-w-0">
+            <p class="mono-label" data-i18n="sponsor.bsc">BNB Smart Chain · BEP20 USDT</p>
+            <p class="mt-1 break-all font-mono text-[11px] leading-5 text-[#B9C3C1] select-all">0x940dB7A2fB67078108017312BFCB90Ec05fA5CC1</p>
+          </div>
+          <button type="button" class="btn-ghost shrink-0 border px-2.5 py-1 text-[10px]" data-copy-value="0x940dB7A2fB67078108017312BFCB90Ec05fA5CC1" data-i18n="sponsor.copy">Copy</button>
+        </div>
+      </div>
+
+      <p class="mt-4 text-[11px] leading-5 text-faint" data-i18n="sponsor.warning">Send only the listed asset on the listed network. A wrong network loses the funds. Verify the address in this repository.</p>
+    </div>
+  </dialog>
 </body>
 </html>

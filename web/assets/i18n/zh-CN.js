@@ -168,7 +168,21 @@ window.MoliSyncI18n.add("zh-CN", {
       home: "首页 ↗",
       top: "回到顶部 ↑"
     },
+    sponsor: "赞助",
     license: "仓库尚未声明全局许可证。"
+  },
+
+  sponsor: {
+    eyebrow: "赞助",
+    title: "支持 MoliSync",
+    lead: "MoliSync 始终免费、自托管。赞助不会解锁任何功能，也不会改变服务端上报的内容。",
+    copy: "复制",
+    copied: "已复制",
+    btc: "Bitcoin · BTC",
+    tron: "TRON · TRC20 USDT",
+    bsc: "BNB Smart Chain · BEP20 USDT",
+    warning: "请使用上表对应的网络与资产，转错网络将永久丢失；地址请以本仓库为准，勿轻信 fork 或第三方页面。",
+    close: "关闭"
   },
 
   privacy: {

@@ -38,10 +38,7 @@
 
   /* ---------- Copy to clipboard ---------- */
 
-  function copyText(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-      return navigator.clipboard.writeText(text);
-    }
+  function legacyCopy(text) {
     return new Promise(function (resolve, reject) {
       var area = document.createElement("textarea");
       area.value = text;
@@ -59,6 +56,17 @@
         reject(err);
       }
     });
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      // Permission can be denied even after a click; fall back rather than
+      // leaving the button silently untouched.
+      return navigator.clipboard.writeText(text).catch(function () {
+        return legacyCopy(text);
+      });
+    }
+    return legacyCopy(text);
   }
 
   var copyButton = document.querySelector("[data-copy-target]");
@@ -88,6 +96,52 @@
       }
     });
   }
+
+  /* ---------- Sponsor dialog ---------- */
+
+  var sponsorDialog = document.getElementById("sponsor-dialog");
+  var sponsorOpeners = Array.prototype.slice.call(document.querySelectorAll("[data-sponsor-open]"));
+
+  if (sponsorDialog && typeof sponsorDialog.showModal === "function") {
+    sponsorOpeners.forEach(function (button) {
+      button.addEventListener("click", function () {
+        sponsorDialog.showModal();
+      });
+    });
+
+    Array.prototype.slice.call(sponsorDialog.querySelectorAll("[data-sponsor-close]")).forEach(function (button) {
+      button.addEventListener("click", function () {
+        sponsorDialog.close();
+      });
+    });
+
+    // Clicking the backdrop closes the dialog; clicks inside must not.
+    sponsorDialog.addEventListener("click", function (event) {
+      if (event.target === sponsorDialog) {
+        sponsorDialog.close();
+      }
+    });
+
+    // The docs footer links here with ?sponsor=1 so the dialog opens directly.
+    if (new URLSearchParams(window.location.search).get("sponsor") === "1") {
+      sponsorDialog.showModal();
+    }
+  }
+
+  Array.prototype.slice.call(document.querySelectorAll("[data-copy-value]")).forEach(function (button) {
+    var label = button.textContent;
+    var timer = null;
+
+    button.addEventListener("click", function () {
+      copyText(button.getAttribute("data-copy-value") || "").then(function () {
+        button.textContent = t("sponsor.copied", "Copied");
+        window.clearTimeout(timer);
+        timer = window.setTimeout(function () {
+          button.textContent = label;
+        }, 1600);
+      });
+    });
+  });
 
   /* ---------- Footer year ---------- */
 

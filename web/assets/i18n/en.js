@@ -168,7 +168,21 @@ window.MoliSyncI18n.add("en", {
       home: "Home ↗",
       top: "Back to top ↑"
     },
+    sponsor: "Sponsor",
     license: "No repository-wide license has been declared yet."
+  },
+
+  sponsor: {
+    eyebrow: "Sponsor",
+    title: "Support MoliSync",
+    lead: "MoliSync stays free and self-hosted. Donations never unlock features and never change what the server sends.",
+    copy: "Copy",
+    copied: "Copied",
+    btc: "Bitcoin · BTC",
+    tron: "TRON · TRC20 USDT",
+    bsc: "BNB Smart Chain · BEP20 USDT",
+    warning: "Send only the listed asset on the listed network; a wrong network loses the funds permanently. Verify the address against this repository, not a fork.",
+    close: "Close"
   },
 
   privacy: {

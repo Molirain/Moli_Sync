@@ -274,6 +274,19 @@ Android 发布签名需要以下仓库 secrets：`ANDROID_KEYSTORE_BASE64`、`AN
 
 Android 启动器/通知图标、Windows 可执行文件图标与本页标识使用同一套“同步 + 文件”图形。服务端只提供 HTTP/WebSocket API，没有可打标的图形界面；[`assets/branding/`](assets/branding/) 保留共享源文件供后续 UI 使用。
 
+## 赞助
+
+MoliSync 完全免费、自托管，没有付费版或功能限制。如果你想支持它继续维护：
+
+| 网络 | 资产 | 地址 |
+| --- | --- | --- |
+| Bitcoin | BTC | `bc1qpg9zclz34wp7wlkhk6jg9aekvv855t24t5jymh` |
+| TRON（TRC20） | USDT | `TTjpRRXug2XeWTzg7En7oxDPg1QAUoyrpi` |
+| BNB Smart Chain（BEP20） | USDT | `0x940dB7A2fB67078108017312BFCB90Ec05fA5CC1` |
+
+- 只接受上表对应的网络与资产；**转错网络或跨链会永久丢失**。
+- 地址以本仓库 `master` 分支的 README 为准，请勿轻信 fork 或第三方页面上的地址。
+
 ## 许可证
 
 仓库目前尚未声明统一许可证。在添加许可证之前，请勿默认源代码可以再分发或复用。
