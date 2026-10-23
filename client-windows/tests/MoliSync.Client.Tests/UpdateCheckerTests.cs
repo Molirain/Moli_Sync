@@ -149,6 +149,21 @@ public sealed class UpdateCheckerTests : IDisposable
         Assert.NotNull(checker.LastError);
     }
 
+    [Fact]
+    public async Task EmptyReleaseListIsCachedSoItDoesNotPollEveryLaunch()
+    {
+        var handler = new StubHandler(_ => Json("[]"));
+        var checker = CreateChecker(handler);
+
+        Assert.Null(await checker.CheckAsync(force: true, CancellationToken.None));
+        Assert.Null(await checker.CheckAsync(force: false, CancellationToken.None));
+        Assert.Equal(1, handler.Calls);
+
+        var second = CreateChecker(handler);
+        Assert.Null(await second.CheckAsync(force: false, CancellationToken.None));
+        Assert.Equal(1, handler.Calls);
+    }
+
     [Theory]
     [InlineData("0.5.0", "0.5.1", -1)]
     [InlineData("0.5.1", "0.5.0", 1)]

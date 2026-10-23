@@ -57,10 +57,10 @@ public sealed class UpdateChecker
     /// </summary>
     public async Task<UpdateRelease?> CheckAsync(bool force, CancellationToken cancellationToken)
     {
-        if (!force && TryLoadCache(out var cached))
+        if (!force && TryLoadCache(out var cached, out var cachedAt))
         {
             Latest = cached;
-            CheckedAt = cached!.PublishedAt;
+            CheckedAt = cachedAt;
             return cached;
         }
 
@@ -149,23 +149,37 @@ public sealed class UpdateChecker
         return best;
     }
 
-    private bool TryLoadCache(out UpdateRelease? release)
+    private bool TryLoadCache(out UpdateRelease? release, out DateTimeOffset checkedAt)
     {
         release = null;
+        checkedAt = default;
         try
         {
             if (!File.Exists(_cachePath))
             {
                 return false;
             }
-            if (DateTimeOffset.UtcNow - File.GetLastWriteTimeUtc(_cachePath) > CacheLifetime)
+            var written = File.GetLastWriteTimeUtc(_cachePath);
+            if (DateTimeOffset.UtcNow - written > CacheLifetime)
             {
                 return false;
             }
 
             var json = File.ReadAllText(_cachePath);
             var cached = JsonSerializer.Deserialize(json, UpdateJsonContext.Default.UpdateCache);
-            if (cached is null || !IsSemVer(cached.Version))
+            if (cached is null)
+            {
+                return false;
+            }
+
+            checkedAt = new DateTimeOffset(written, TimeSpan.Zero);
+            if (string.IsNullOrEmpty(cached.Version))
+            {
+                // A cached "no release found" answer must not trigger another
+                // request; otherwise every launch would spend an API call.
+                return true;
+            }
+            if (!IsSemVer(cached.Version))
             {
                 return false;
             }
