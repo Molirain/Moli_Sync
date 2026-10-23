@@ -18,6 +18,7 @@ MoliSync 是一个开源项目，用于在你自己掌控的设备之间传输�
 | [`proto/sync.proto`](proto/sync.proto) | 带版本的控制面与数据面协议定义。 |
 | [`docker-compose.example.yml`](docker-compose.example.yml) | 服务端容器加固后的 Compose 模板。 |
 | [`assets/branding/`](assets/branding/) | 统一图标源文件、PNG 渲染与可复现的生成脚本。 |
+| [`web/`](web/) | 中英双语项目主页与多页文档站（Tailwind CSS），自动识别浏览器语言，可直接部署到 Cloudflare Pages。 |
 | [`.github/workflows/`](.github/workflows/) | Android 构建/发布与服务端容器镜像流水线。 |
 | [架构白皮书](MoliSync%20分布式跨端同步与点对点流式互传系统技术架构白皮书.md) | 原始架构与部署设计说明。 |
 
@@ -68,6 +69,8 @@ Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服
 | `GET /api/v1/blobs/{id}` | 下载 blob，支持 Range |
 | `DELETE /api/v1/records/{id}` | 删除自己的记录与 blob |
 | `GET /api/v1/relay/{session_id}` | 中继字节流（`X-Session-Ticket`，连接劫持后双向转发） |
+| `GET /api/v1/stats` | 本部署统计（设备/活跃/记录/存储），需设备身份 |
+| `GET /api/v1/me` | 设备身份 + 服务端版本 + 服务端更新状态 |
 
 ## 实现状态
 
@@ -83,9 +86,35 @@ Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服
 | Windows Avalonia 桌面界面、自动读取系统证书、三栏云同步、图片缩略图与查看器、Range 下载、数据目录迁移与开机自启 | 已实现 |
 | Android KeyChain mTLS、三栏云界面、流式 HTTP 上传、Range 下载、系统分享、基于 PFD 的发送、BLAKE3 分帧与前台服务 | 已实现 |
 | 端到端 P2P 同步、票据交换、可互操作的对端监听、中继 | 已实现（两端均已接入，仍需真实网络回归） |
-| 客户端自动检查更新 | 暂缓 |
+| 使用统计：服务端聚合上报 + 独立收集器 + `/api/v1/stats` | 已实现 |
+| 升级提示：Windows / Android 查各自的 release，服务端版本由服务端自检后转达客户端 | 已实现 |
 
 三端的文字同步走服务器；阈值内的图片/文件可存入服务器并由任意授权设备下载，也可以选择直接 P2P。P2P 不可达时自动回退服务端中继，端侧仍持有会话票据做校验。Windows 与 Android 都支持自定义设备名、查看在线设备及其 LAN/VPN 地址。
+
+## 版本号与发布
+
+三端共享「主.次」版本号（代表协议兼容代际），**补丁号各自独立**：修一个端的 bug 只涨它自己的补丁号。
+
+| 组件 | Tag | 触发 |
+| --- | --- | --- |
+| 服务端 / 收集器 | `server-v0.5.1` | 构建 `molisync-server` 与 `molisync-collector` 镜像 |
+| Windows | `desktop-v0.5.1` | 构建并发布便携版 zip |
+| Android | `android-v0.5.1` | 签名并发布 APK |
+
+- 没有全局 `v0.5.1` tag：`v*` 不再触发任何构建，避免改一端连带发全量。
+- 客户端只在自己的命名空间里找 release（`desktop-v` / `android-v`），所以服务端或另一端的发布不会误报升级。
+- 升级提示依赖 GitHub Releases 的匿名读取，**仓库必须公开**；未公开时客户端静默不提示，服务端日志会写明原因。
+- 服务端自己每 12 小时查一次 `server-v`，把结果通过 `/api/v1/me` 转达给客户端，因此每个部署只产生一次请求，而不是每台设备一次。
+
+## 使用统计
+
+统计是**服务端聚合、单点上报**，客户端不参与、也没有任何埋点：
+
+- 服务端每 24 小时（±10% 抖动）向 `telemetry.endpoint` POST 一份聚合 JSON：随机部署 ID、版本、设备总数、7/30 天活跃设备数、平台分布、记录数与总字节数。
+- 设备标识以**每部署随机盐做 HMAC** 后存进 SQLite，数据库里没有可逆的证书指纹；设备名、IP、记录内容从不上报。
+- 默认 `endpoint` 为空即不上报；要开启就部署收集器并填上地址。`MOLISYNC_TELEMETRY_ENABLED=false` 可彻底关闭。
+- 收集器用 `MOLISYNC_COLLECTOR_ADMIN_TOKEN` 保护 `GET /v1/stats`，未配置时该端点直接 503，不会意外公开。
+- 只想看自己这一套部署：`curl` 带设备证书访问 `https://<你的域名>/api/v1/stats`。
 
 ## Docker 快速开始
 
@@ -95,7 +124,7 @@ Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服
 docker pull ghcr.io/molirain/molisync-server:latest
 ```
 
-标签：`latest`（默认分支）、发布标签对应的 `vX.Y.Z` 与 `X.Y`，以及每次发布构建的 `sha-<commit>`。镜像支持多架构（`linux/amd64`、`linux/arm64`），以 `nonroot` 运行，且不包含 shell 或包管理器。
+标签：`latest`（默认分支）、`server-vX.Y.Z` 发布对应的 `X.Y.Z`，以及每次发布构建的 `sha-<commit>`。镜像支持多架构（`linux/amd64`、`linux/arm64`），以 `nonroot` 运行，且不包含 shell 或包管理器。
 
 从示例 Compose 文件开始：
 

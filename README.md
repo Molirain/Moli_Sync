@@ -18,6 +18,7 @@ MoliSync is an open-source project for moving files and synchronized data betwee
 | [`proto/sync.proto`](proto/sync.proto) | Versioned control-plane and data-plane protocol definition. |
 | [`docker-compose.example.yml`](docker-compose.example.yml) | Hardened Compose template for the server container. |
 | [`assets/branding/`](assets/branding/) | Shared icon source, PNG renders and the reproducible renderer. |
+| [`web/`](web/) | Bilingual project site and multi-page documentation (Tailwind CSS) with automatic language detection, ready for Cloudflare Pages. |
 | [`.github/workflows/`](.github/workflows/) | Android build/release and server container image pipelines. |
 | [Architecture whitepaper](MoliSync%20分布式跨端同步与点对点流式互传系统技术架构白皮书.md) | Original architecture and deployment design notes (Chinese). |
 
@@ -68,6 +69,8 @@ The Android client implements this model in three tabs (text, images, files). Th
 | `GET /api/v1/blobs/{id}` | Download a blob, with Range support |
 | `DELETE /api/v1/records/{id}` | Delete your own record and blob |
 | `GET /api/v1/relay/{session_id}` | Relay byte stream (`X-Session-Ticket`, hijacked and forwarded both ways) |
+| `GET /api/v1/stats` | Local counters (devices, activity, records, storage); requires a device identity |
+| `GET /api/v1/me` | Device identity, server version and the server's own update status |
 
 ## Implementation status
 
@@ -83,9 +86,35 @@ The Android client implements this model in three tabs (text, images, files). Th
 | Windows Avalonia desktop UI, automatic Windows-store certificate selection, three-tab cloud sync, image thumbnails and viewer, Range download, data-directory migration and autostart | Implemented |
 | Android KeyChain mTLS, three-tab cloud UI, streaming HTTP upload, Range download, share intents, PFD-based sender, BLAKE3 framing and foreground service | Implemented |
 | End-to-end P2P sync, ticket exchange, interoperable peer listener, relay | Implemented on both clients; still needs real-network regression |
-| Client-side update check | Deferred |
+| Usage statistics: server-side aggregate reporting, standalone collector, `/api/v1/stats` | Implemented |
+| Update prompts: Windows and Android read their own release namespace; the server checks itself and reports through the API | Implemented |
 
 Text sync across devices runs through the server. Images and files below the threshold can be stored on the server and downloaded by any authorized client, or sent directly peer-to-peer. When no candidate is reachable the clients fall back to the server relay, and the session ticket is still verified on the receiving side. Both desktop and mobile clients let you rename the device and inspect every LAN/VPN address of an online peer.
+
+## Versioning and releases
+
+All components share a MAJOR.MINOR baseline (the protocol-compatibility generation) while **each component owns its PATCH number**, so fixing one client never implies releasing the others.
+
+| Component | Tag | Builds |
+| --- | --- | --- |
+| Server / collector | `server-v0.5.1` | `molisync-server` and `molisync-collector` images |
+| Windows | `desktop-v0.5.1` | Portable zip release |
+| Android | `android-v0.5.1` | Signed APK release |
+
+- There is no umbrella `v0.5.1` tag; `v*` triggers nothing, so a single-client fix cannot publish everything.
+- Each client only reads its own namespace (`desktop-v` / `android-v`), so a server or sibling release never shows up as an update.
+- Update prompts use GitHub Releases, which requires a **public** repository. On a private repository clients stay silent and the server log states why.
+- The server checks the `server-v` namespace every 12 hours and forwards the result through `/api/v1/me`, so a deployment makes one request per interval instead of one per device.
+
+## Usage statistics
+
+Statistics are aggregated by the server and reported once per deployment; clients contain no analytics at all:
+
+- Every 24 hours (±10% jitter) the server POSTs one aggregate JSON document to `telemetry.endpoint`: a random deployment id, versions, total devices, 7/30-day active devices, platform split, record counts and total bytes.
+- Device identifiers are stored as an **HMAC with a per-deployment random salt**, so the database holds no reversible certificate fingerprint. Names, IP addresses and record contents are never reported.
+- The endpoint defaults to empty (reporting off). Deploy the collector and set the endpoint to enable it, or set `MOLISYNC_TELEMETRY_ENABLED=false` to opt out entirely.
+- The collector guards `GET /v1/stats` with `MOLISYNC_COLLECTOR_ADMIN_TOKEN`; without it the endpoint returns 503 instead of exposing counts.
+- To see only your own deployment, call `https://<your-host>/api/v1/stats` with a device certificate.
 
 ## Quick start with Docker
 
@@ -95,7 +124,7 @@ The server image is published to GitHub Container Registry:
 docker pull ghcr.io/molirain/molisync-server:latest
 ```
 
-Tags: `latest` (default branch), `vX.Y.Z` and `X.Y` for release tags, and `sha-<commit>` for every published build. Images are multi-arch (`linux/amd64`, `linux/arm64`), run as `nonroot`, and contain no shell or package manager.
+Tags: `latest` (default branch), `X.Y.Z` for every `server-vX.Y.Z` release, and `sha-<commit>` for each published build. Images are multi-arch (`linux/amd64`, `linux/arm64`), run as `nonroot`, and contain no shell or package manager.
 
 Start from the example Compose file:
 

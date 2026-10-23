@@ -227,6 +227,16 @@ P2P 信令：客户端发送 `open_session`（`to_device_id`，可选 `transfer_
 
 `relay_request` 消息仍保留在协议中用于兼容，但当前实现使用 HTTP 中继端点。
 
+### 统计与升级提示
+
+- `GET /api/v1/stats`（需设备身份）返回本部署的设备总数、当前在线、7/30 天活跃、平台分布、记录数与字节数，以及 `server_update` 与 `telemetry` 状态。
+- `GET /api/v1/me` 额外返回 `server_version` 与 `server_update`；客户端据此提示“服务端需要升级”，无需自己查询 GitHub。
+- 设备活跃度在 `hello` 时写入 `devices` 表，标识是 `HMAC-SHA256(每部署随机盐, 证书指纹)`，数据库里没有可逆指纹。
+- `telemetry` 段控制匿名聚合上报：默认 `endpoint` 为空即关闭；设置后端每 24 小时 POST 一次聚合计数，不含设备标识、名称、IP 或记录内容。
+- `update_check` 段控制服务端自检，每 12 小时读一次 `server-vX.Y.Z` release；`version` 为 `dev` 的开发构建会自动跳过。
+
+发布使用分端 tag：`server-vX.Y.Z` 只构建服务端与收集器镜像，`desktop-vX.Y.Z` 与 `android-vX.Y.Z` 互不影响。
+
 ## 安全设计要点
 
 - **受信代理强约束**：启动时强制至少一个 CIDR 且拒绝全网段；不满足则拒绝启动。
