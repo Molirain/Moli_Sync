@@ -11,7 +11,7 @@ on:
       - main
       - master
     tags:
-      - "v*"
+      - "server-v*"
     paths:
       - "server/**"
       - ".github/workflows/server-image.yml"
@@ -26,6 +26,7 @@ concurrency:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/molisync-server
+  COLLECTOR_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/molisync-collector
 
 jobs:
   verify:
@@ -68,6 +69,18 @@ jobs:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Resolve release version
+        id: version
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/server-v* ]]; then
+            version="${GITHUB_REF_NAME#server-v}"
+            [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]
+          else
+            version="sha-${GITHUB_SHA::7}"
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -75,9 +88,17 @@ jobs:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ steps.version.outputs.value }}
+            type=sha,format=short
+
+      - name: Extract collector metadata
+        id: collector-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.COLLECTOR_IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.version.outputs.value }}
             type=sha,format=short
 
       - name: Log in to GHCR
@@ -88,18 +109,36 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push server image
         uses: docker/build-push-action@v6
         with:
           context: ./server
           file: ./server/Dockerfile
+          target: server
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VERSION=${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            VERSION=${{ steps.version.outputs.value }}
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,mode=max,scope=server
+          provenance: true
+          sbom: true
+
+      - name: Build and push collector image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          target: collector
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.collector-meta.outputs.tags }}
+          labels: ${{ steps.collector-meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.value }}
+          cache-from: type=gha,scope=collector
+          cache-to: type=gha,mode=max,scope=collector
           provenance: true
           sbom: true
