@@ -8,9 +8,11 @@ import com.molirain.molisync.security.MtlsClientFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -326,6 +328,11 @@ class ControlPlaneClient(
     /**
      * Requests a session and waits for the server-issued ticket that belongs to
      * this device as the sender.
+     *
+     * The ticket collector subscribes *before* the request is sent: the server
+     * can answer within the same millisecond, and an un-replayed SharedFlow
+     * emission that arrives first would be lost, leaving the sender waiting for
+     * a ticket it already discarded.
      */
     suspend fun openSession(
         toDeviceId: String,
@@ -334,11 +341,23 @@ class ControlPlaneClient(
     ): SessionTicket {
         val selfId = (state.value as? ConnectionState.Connected)?.deviceId
             ?: throw IOException("控制面尚未连接")
-        if (!requestSession(toDeviceId, transferName)) {
-            throw IOException("控制面未连接，无法协商 P2P 会话")
-        }
+
         return withTimeout(timeoutMs) {
-            sessionTickets.first { it.fromDeviceId == selfId && it.toDeviceId == toDeviceId }
+            coroutineScope {
+                val ticket = async(start = CoroutineStart.UNDISPATCHED) {
+                    sessionTickets.first { it.fromDeviceId == selfId && it.toDeviceId == toDeviceId }
+                }
+                if (!requestSession(toDeviceId, transferName)) {
+                    ticket.cancel()
+                    throw IOException("控制面未连接，无法协商 P2P 会话")
+                }
+                try {
+                    ticket.await()
+                } catch (failure: Throwable) {
+                    ticket.cancel()
+                    throw failure
+                }
+            }
         }
     }
 

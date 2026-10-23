@@ -63,6 +63,7 @@ import com.molirain.molisync.ui.theme.MoliSyncTheme
 import com.molirain.molisync.ui.theme.MoliColors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -619,6 +620,11 @@ private suspend fun startTransfer(
         TransferService.start(activity.applicationContext, request, descriptors)
         Toast.makeText(activity, "已开始传输", Toast.LENGTH_SHORT).show()
         activity.finish()
+    } catch (timeout: TimeoutCancellationException) {
+        // A ticket timeout is a CancellationException, so it must be handled
+        // before the cancellation branch or the screen would spin forever.
+        closeDescriptors(descriptors)
+        onError("协商传输会话超时，请确认对端在线后重试")
     } catch (cancellation: CancellationException) {
         closeDescriptors(descriptors)
         throw cancellation
