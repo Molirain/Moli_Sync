@@ -20,6 +20,7 @@ import (
 	"github.com/molirain/molisync/server/internal/p2p"
 	"github.com/molirain/molisync/server/internal/store"
 	"github.com/molirain/molisync/server/internal/telemetry"
+	"github.com/molirain/molisync/server/internal/thumbnail"
 	"github.com/molirain/molisync/server/internal/updatecheck"
 	"github.com/molirain/molisync/server/internal/ws"
 )
@@ -32,6 +33,8 @@ type Deps struct {
 	Sessions  *p2p.Store
 	Relay     *p2p.Relay
 	Telemetry *telemetry.Reporter
+	// Thumbs renders and caches image previews. Optional.
+	Thumbs *thumbnail.Cache
 	// Updates reports whether a newer server release exists.
 	Updates *updatecheck.Checker
 	// Version is the server build version advertised to clients.
@@ -56,6 +59,7 @@ func NewRouter(deps Deps) http.Handler {
 	mux.Handle("POST /api/v1/records/text", deps.Auth.RequireDevice(http.HandlerFunc(handleCreateText(deps))))
 	mux.Handle("POST /api/v1/records/blob", deps.Auth.RequireDevice(http.HandlerFunc(handleCreateBlob(deps))))
 	mux.Handle("GET /api/v1/blobs/{id}", deps.Auth.RequireDevice(http.HandlerFunc(handleBlob(deps))))
+	mux.Handle("GET /api/v1/blobs/{id}/thumb", deps.Auth.RequireDevice(http.HandlerFunc(handleBlobThumbnail(deps))))
 	mux.Handle("GET /api/v1/relay/{id}", deps.Auth.RequireDevice(http.HandlerFunc(handleRelay(deps))))
 	mux.Handle("DELETE /api/v1/records/{id}", deps.Auth.RequireDevice(http.HandlerFunc(handleDeleteRecord(deps))))
 	mux.HandleFunc("/", handleNotFound)

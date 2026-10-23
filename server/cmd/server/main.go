@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/molirain/molisync/server/internal/registry"
 	"github.com/molirain/molisync/server/internal/store"
 	"github.com/molirain/molisync/server/internal/telemetry"
+	"github.com/molirain/molisync/server/internal/thumbnail"
 	"github.com/molirain/molisync/server/internal/updatecheck"
 	"github.com/molirain/molisync/server/internal/ws"
 )
@@ -103,6 +105,11 @@ func serve(cfg *config.Config, logger *slog.Logger) error {
 			logger.Error("close record store", "error", err)
 		}
 	}()
+
+	thumbs, err := thumbnail.Open(filepath.Join(cfg.Storage.DataDir, "thumbs"))
+	if err != nil {
+		return err
+	}
 
 	authMiddleware, err := auth.NewMiddleware(auth.Options{
 		VerifyHeader:              cfg.Proxy.VerifyHeader,
@@ -196,6 +203,7 @@ func serve(cfg *config.Config, logger *slog.Logger) error {
 		Sessions:  sessions,
 		Relay:     p2p.NewRelay(15*time.Second, logger),
 		Telemetry: reporter,
+		Thumbs:    thumbs,
 		Updates:   updates,
 		Version:   version,
 		Logger:    logger,

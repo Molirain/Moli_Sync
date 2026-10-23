@@ -77,6 +77,8 @@ docker run --rm -p 127.0.0.1:9520:9520 \
 - 文字记录上限 64 KiB。
 - 单个 blob 上限由 `storage.max_item_bytes` 控制，默认 64 MiB。
 - `GET /api/v1/blobs/{id}` 使用 `http.ServeContent`，原生支持 `Range` 断点续传、`206` 与 `416`。
+- `GET /api/v1/blobs/{id}/thumb?w=320` 用标准库解码 JPEG/PNG/GIF，按面积平均缩放后输出 JPEG，
+  结果缓存在 `<data_dir>/thumbs/`；非图片或过大图片返回 `415`，客户端回落到原图下载。
 - 记录永不自动过期；删除只能由发送者本人执行。
 - 备份时同时备份 SQLite 数据库与 blob 目录（或整个卷）。
 
@@ -140,6 +142,7 @@ Nginx 请使用 `map` 生成 `$connection_upgrade`，并保持 `proxy_request_bu
 | POST | `/api/v1/records/text` | 是 | 保存文字记录并广播，body 为 `{"text":"..."}` |
 | POST | `/api/v1/records/blob` | 是 | 流式上传 blob，查询参数 `kind=image|file`、`name`、`mime`，可选 `X-Blake3` |
 | GET | `/api/v1/blobs/{id}` | 是 | 下载 blob，支持 HTTP Range 断点续传 |
+| GET | `/api/v1/blobs/{id}/thumb` | 是 | 图片预览（JPEG，`w=64..1024`，默认 320），磁盘缓存 |
 | DELETE | `/api/v1/records/{id}` | 是 | 删除自己的记录与 blob |
 
 鉴权失败返回 JSON：`{"error":{"code":"...","message":"..."}}`。
