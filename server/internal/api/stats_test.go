@@ -30,10 +30,10 @@ func TestStatsEndpointReportsLocalCounters(t *testing.T) {
 	); err != nil {
 		t.Fatalf("SaveBlob: %v", err)
 	}
-	if err := records.TouchDevice(ctx, "device-a", "windows"); err != nil {
+	if _, _, err := records.TouchDevice(ctx, "device-a", "windows"); err != nil {
 		t.Fatalf("TouchDevice: %v", err)
 	}
-	if err := records.TouchDevice(ctx, "device-b", "android"); err != nil {
+	if _, _, err := records.TouchDevice(ctx, "device-b", "android"); err != nil {
 		t.Fatalf("TouchDevice: %v", err)
 	}
 

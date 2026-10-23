@@ -86,7 +86,7 @@ The Android client implements this model in three tabs (text, images, files). Th
 | Windows Avalonia desktop UI, automatic Windows-store certificate selection, three-tab cloud sync, image thumbnails and viewer, Range download, data-directory migration and autostart | Implemented |
 | Android KeyChain mTLS, three-tab cloud UI, streaming HTTP upload, Range download, share intents, PFD-based sender, BLAKE3 framing and foreground service | Implemented |
 | End-to-end P2P sync, ticket exchange, interoperable peer listener, relay | Implemented on both clients; still needs real-network regression |
-| Usage statistics: server-side aggregate reporting, standalone collector, `/api/v1/stats` | Implemented |
+| Usage statistics: one report per device on first connection, Cloudflare Worker counter, local `/api/v1/stats` | Implemented |
 | Update prompts: Windows and Android read their own release namespace; the server checks itself and reports through the API | Implemented |
 
 Text sync across devices runs through the server. Images and files below the threshold can be stored on the server and downloaded by any authorized client, or sent directly peer-to-peer. When no candidate is reachable the clients fall back to the server relay, and the session ticket is still verified on the receiving side. Both desktop and mobile clients let you rename the device and inspect every LAN/VPN address of an online peer.
@@ -97,7 +97,7 @@ All components share a MAJOR.MINOR baseline (the protocol-compatibility generati
 
 | Component | Tag | Builds |
 | --- | --- | --- |
-| Server / collector | `server-v0.5.1` | `molisync-server` and `molisync-collector` images |
+| Server | `server-v0.5.1` | `molisync-server` image |
 | Windows | `desktop-v0.5.1` | Portable zip release |
 | Android | `android-v0.5.1` | Signed APK release |
 
@@ -108,36 +108,39 @@ All components share a MAJOR.MINOR baseline (the protocol-compatibility generati
 
 ## Usage statistics
 
-**Use `users` (the number of self-hosted deployments) as the headcount.** MoliSync is self-hosted and accountless; the server only knows certificates, so there is no "person" entity. Two honest numbers are available:
+One rule: **each device reports exactly once, the first time it ever connects**. No periodic heartbeat, no client-side analytics.
+
+```text
+first hello ──> the server does not know this device yet
+                 └─> one POST {event_id, platform, version} to your Worker
+                       └─> D1 INSERT OR IGNORE, counter +1
+later reconnects ──> only last_seen is updated, nothing is reported
+```
+
+- `event_id` is the first 128 bits of SHA-256 over "deployment id + salted device key": unique inside a deployment, unlinkable across deployments. The Worker never sees a certificate fingerprint, device name or IP.
+- The Worker stores no IP, no cookie and no identifying field; server retries are idempotent thanks to the primary key.
+- The counter is the project-operated public endpoint `https://statistics-api.molirain.com/install` (Cloudflare Worker + D1); its deployment lives in a separate repository. Set `MOLISYNC_TELEMETRY_ENABLED=false` (or clear `telemetry.endpoint`) to opt out.
 
 | Metric | Meaning | Bias as a headcount |
 | --- | --- | --- |
-| `users` (deployments) | How many servers people run | Closest to real users; people who use someone else's server are not counted → undercounts |
-| `installations` | Devices that ever connected (counted once, monotonic) | One person with a laptop and a phone counts as 2 → overcounts |
+| `deployments` | How many servers people run | **Closest to real users**; people using someone else's server are not counted → undercounts |
+| `installations` | Devices that ever installed | One person with a laptop and a phone counts as 2 → overcounts |
 
-- Every 24 hours (±10% jitter) the server POSTs one aggregate JSON document to `telemetry.endpoint`: a random deployment id, versions, total devices, 7/30-day active devices, platform split, record counts and total bytes. That is a counter sync, not repeated counting.
-- Device identifiers are stored as an **HMAC with a per-deployment random salt**, so the database holds no reversible certificate fingerprint. Names, IP addresses and record contents are never reported.
-- The collector books only the **number** of new installations per UTC day in `install_events` — never which device — so totals only grow while growth stays visible.
-- The endpoint defaults to empty (reporting off). Deploy the collector and set the endpoint to enable it, or set `MOLISYNC_TELEMETRY_ENABLED=false` to opt out entirely.
-
-One command to read it:
+One command:
 
 ```sh
-curl -H "Authorization: Bearer $MOLISYNC_COLLECTOR_ADMIN_TOKEN" \
-     https://stats.example.com/v1/stats?format=text
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+     "https://statistics-api.molirain.com/stats?format=text"
 ```
 
 ```text
 MoliSync usage
-  users         : 3   (self-hosted deployments; one owner each)
-  installations : 12  (devices; 7d +2, 30d +5)
-  devices       : 12 total, 4 online, 6 active 7d, 9 active 30d
+  installations : 12
+  deployments   : 3
   platforms     : windows 5, android 6, other 1
-  records       : 120 (text 100, image 15, file 5), 1.2 GiB
-  version 0.5.0   : 2 deployment(s), 9 device(s)
 ```
 
-Drop `?format=text` for the same data as JSON (`deployments` is the same value as `users`). To see only your own deployment, call `https://<your-host>/api/v1/stats` with a device certificate.
+To see only your own deployment, call `https://<your-host>/api/v1/stats` with a device certificate.
 
 ## Quick start with Docker
 

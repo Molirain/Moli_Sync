@@ -44,6 +44,10 @@ server/data/
 .DS_Store
 Thumbs.db
 
+# Node tooling (web site and stats worker)
+node_modules/
+.wrangler/
+
 # Test and coverage output
 *.out
 coverage.html

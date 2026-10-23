@@ -147,19 +147,27 @@ func serve(cfg *config.Config, logger *slog.Logger) error {
 	hub.SetRelayPath("/api/v1/relay")
 	hub.SetServerVersion(version)
 
-	reporter, err := telemetry.New(records, telemetry.Options{
-		Endpoint:        cfg.Telemetry.Endpoint,
-		Token:           cfg.Telemetry.Token,
-		Interval:        cfg.Telemetry.Interval.Std(),
-		Timeout:         cfg.Telemetry.Timeout.Std(),
-		ServerVersion:   version,
-		ProtocolVersion: ws.ProtocolVersion,
-		OnlineDevices:   func() int { return len(hub.Devices()) },
-		Logger:          logger,
+	deploymentContext, cancelDeployment := context.WithTimeout(context.Background(), 5*time.Second)
+	deploymentID, err := records.DeploymentID(deploymentContext)
+	cancelDeployment()
+	if err != nil {
+		return err
+	}
+
+	reporter, err := telemetry.New(telemetry.Options{
+		Endpoint:     cfg.Telemetry.Endpoint,
+		Token:        cfg.Telemetry.Token,
+		DeploymentID: deploymentID,
+		Version:      version,
+		Timeout:      cfg.Telemetry.Timeout.Std(),
+		Logger:       logger,
 	})
 	if err != nil {
 		return err
 	}
+	hub.SetNewDeviceHandler(func(deviceKey, platform string) {
+		reporter.Report(deviceKey, platform)
+	})
 
 	var updates *updatecheck.Checker
 	if cfg.UpdateCheck.Enabled {
@@ -198,9 +206,9 @@ func serve(cfg *config.Config, logger *slog.Logger) error {
 
 	go reporter.Run(signalContext)
 	if reporter.Enabled() {
-		logger.Info("telemetry reporting enabled", "interval", cfg.Telemetry.Interval.Std())
+		logger.Info("install reporting enabled", "endpoint", cfg.Telemetry.Endpoint)
 	} else {
-		logger.Info("telemetry reporting disabled", "reason", "no endpoint configured or disabled")
+		logger.Info("install reporting disabled", "reason", "no endpoint configured or disabled")
 	}
 	if updates != nil {
 		go updates.Run(signalContext)

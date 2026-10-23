@@ -56,6 +56,7 @@ type Hub struct {
 	sessions       *p2p.Store
 	relayPath      string
 	serverVersion  string
+	onNewDevice    func(deviceKey, platform string)
 	logger         *slog.Logger
 	now            func() time.Time
 	upgrader       websocket.Upgrader
@@ -182,6 +183,12 @@ func (h *Hub) SetServerVersion(version string) {
 	h.serverVersion = strings.TrimSpace(version)
 }
 
+// SetNewDeviceHandler registers a callback invoked exactly once per device,
+// the first time it ever connects. It is used to count installations.
+func (h *Hub) SetNewDeviceHandler(handler func(deviceKey, platform string)) {
+	h.onNewDevice = handler
+}
+
 // recordDeviceSeen persists device activity for statistics. Failures are
 // logged and ignored: metrics must never break registration.
 func (h *Hub) recordDeviceSeen(deviceID, platform string) {
@@ -190,8 +197,13 @@ func (h *Hub) recordDeviceSeen(deviceID, platform string) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	if err := h.records.TouchDevice(ctx, deviceID, platform); err != nil {
+	deviceKey, created, err := h.records.TouchDevice(ctx, deviceID, platform)
+	if err != nil {
 		h.logger.Warn("record device activity", "device_id", deviceID, "error", err)
+		return
+	}
+	if created && h.onNewDevice != nil {
+		h.onNewDevice(deviceKey, store.NormalizePlatform(platform))
 	}
 }
 

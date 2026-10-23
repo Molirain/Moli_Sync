@@ -132,14 +132,13 @@ type LogConfig struct {
 	Format string `yaml:"format" env:"MOLISYNC_LOG_FORMAT"`
 }
 
-// TelemetryConfig controls the anonymous aggregate report sent to a collector.
-// The report contains only counters; it never includes device identifiers,
-// names, IP addresses or record contents.
+// TelemetryConfig controls the one-time anonymous install report. The event
+// contains only a deployment-scoped opaque id, the platform and the server
+// version; it never includes a device identifier, name, address or content.
 type TelemetryConfig struct {
 	Enabled  bool     `yaml:"enabled" env:"MOLISYNC_TELEMETRY_ENABLED"`
 	Endpoint string   `yaml:"endpoint" env:"MOLISYNC_TELEMETRY_ENDPOINT"`
 	Token    string   `yaml:"token" env:"MOLISYNC_TELEMETRY_TOKEN"`
-	Interval Duration `yaml:"interval" env:"MOLISYNC_TELEMETRY_INTERVAL"`
 	Timeout  Duration `yaml:"timeout" env:"MOLISYNC_TELEMETRY_TIMEOUT"`
 }
 
@@ -211,8 +210,7 @@ func Default() *Config {
 		},
 		Telemetry: TelemetryConfig{
 			Enabled:  true,
-			Endpoint: "",
-			Interval: Duration(24 * time.Hour),
+			Endpoint: "https://statistics-api.molirain.com/install",
 			Timeout:  Duration(10 * time.Second),
 		},
 		UpdateCheck: UpdateCheckConfig{
@@ -373,7 +371,6 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	validateRange(add, "telemetry.interval", c.Telemetry.Interval, time.Minute, 30*24*time.Hour)
 	validateRange(add, "telemetry.timeout", c.Telemetry.Timeout, time.Second, time.Minute)
 	if c.Telemetry.Active() {
 		parsed, err := url.Parse(strings.TrimSpace(c.Telemetry.Endpoint))

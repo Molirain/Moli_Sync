@@ -86,26 +86,40 @@ func (s *Store) FirstSeen(ctx context.Context) (time.Time, error) {
 	return time.Unix(seconds, 0).UTC(), nil
 }
 
-// TouchDevice records that a device connected. deviceID is the raw certificate
-// fingerprint; only a salted key is persisted so the database never stores a
-// reversible certificate identity.
-func (s *Store) TouchDevice(ctx context.Context, deviceID, platform string) error {
+// TouchDevice records that a device connected and reports whether this is the
+// first time it was ever seen, which is exactly the moment an installation is
+// counted. deviceID is the raw certificate fingerprint; only a salted key is
+// persisted and returned, so the database never stores a reversible identity.
+func (s *Store) TouchDevice(ctx context.Context, deviceID, platform string) (deviceKey string, created bool, err error) {
 	key, err := s.DeviceKey(deviceID)
 	if err != nil {
-		return err
+		return "", false, err
 	}
 	now := s.now().UTC().Unix()
-	_, err = s.db.ExecContext(ctx,
+	// RETURNING yields a row only when the insert actually happened, which is
+	// the reliable way to tell a first install from a reconnect: SQLite counts
+	// both the insert and the upsert as one affected row.
+	var insertedKey string
+	err = s.db.QueryRowContext(ctx,
 		`INSERT INTO devices (device_key, platform, first_seen, last_seen)
 		 VALUES (?, ?, ?, ?)
-		 ON CONFLICT(device_key) DO UPDATE SET
-			platform = excluded.platform,
-			last_seen = excluded.last_seen`,
-		key, NormalizePlatform(platform), now, now)
-	if err != nil {
-		return fmt.Errorf("store: touch device: %w", err)
+		 ON CONFLICT(device_key) DO NOTHING
+		 RETURNING device_key`,
+		key, NormalizePlatform(platform), now, now,
+	).Scan(&insertedKey)
+	if errors.Is(err, sql.ErrNoRows) {
+		if _, updateErr := s.db.ExecContext(ctx,
+			`UPDATE devices SET platform = ?, last_seen = ? WHERE device_key = ?`,
+			NormalizePlatform(platform), now, key,
+		); updateErr != nil {
+			return key, false, fmt.Errorf("store: touch device: %w", updateErr)
+		}
+		return key, false, nil
 	}
-	return nil
+	if err != nil {
+		return "", false, fmt.Errorf("store: touch device: %w", err)
+	}
+	return key, true, nil
 }
 
 // DeviceKey derives the persisted pseudo-identifier for a device.

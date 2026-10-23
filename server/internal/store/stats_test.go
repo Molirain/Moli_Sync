@@ -83,18 +83,18 @@ func TestDeviceStatsBucketsByAgeAndPlatform(t *testing.T) {
 	store := openClockStore(t, &clock)
 	ctx := context.Background()
 
-	if err := store.TouchDevice(ctx, "device-windows", "windows"); err != nil {
+	if _, _, err := store.TouchDevice(ctx, "device-windows", "windows"); err != nil {
 		t.Fatalf("touch: %v", err)
 	}
-	if err := store.TouchDevice(ctx, "device-android", "android"); err != nil {
+	if _, _, err := store.TouchDevice(ctx, "device-android", "android"); err != nil {
 		t.Fatalf("touch: %v", err)
 	}
-	if err := store.TouchDevice(ctx, "device-linux", "linux"); err != nil {
+	if _, _, err := store.TouchDevice(ctx, "device-linux", "linux"); err != nil {
 		t.Fatalf("touch: %v", err)
 	}
 
 	// Touching twice must not double count.
-	if err := store.TouchDevice(ctx, "device-windows", "windows"); err != nil {
+	if _, _, err := store.TouchDevice(ctx, "device-windows", "windows"); err != nil {
 		t.Fatalf("touch: %v", err)
 	}
 
@@ -110,7 +110,7 @@ func TestDeviceStatsBucketsByAgeAndPlatform(t *testing.T) {
 	}
 
 	clock = clock.Add(10 * 24 * time.Hour)
-	if err := store.TouchDevice(ctx, "device-android", "android"); err != nil {
+	if _, _, err := store.TouchDevice(ctx, "device-android", "android"); err != nil {
 		t.Fatalf("touch: %v", err)
 	}
 
@@ -177,6 +177,34 @@ func TestSnapshotIncludesDeploymentIdentityAndFirstSeen(t *testing.T) {
 	}
 	if again.DeploymentID != snapshot.DeploymentID {
 		t.Fatal("the deployment id must be stable")
+	}
+}
+
+func TestTouchDeviceReportsOnlyTheFirstInstall(t *testing.T) {
+	clock := time.Unix(1_700_000_000, 0).UTC()
+	store := openClockStore(t, &clock)
+	ctx := context.Background()
+
+	key, created, err := store.TouchDevice(ctx, "device-a", "windows")
+	if err != nil {
+		t.Fatalf("TouchDevice: %v", err)
+	}
+	if !created {
+		t.Fatal("the first connection must count as an installation")
+	}
+	if key == "" {
+		t.Fatal("device key must be returned for the install report")
+	}
+
+	secondKey, created, err := store.TouchDevice(ctx, "device-a", "windows")
+	if err != nil {
+		t.Fatalf("TouchDevice: %v", err)
+	}
+	if created {
+		t.Fatal("a reconnect must not count as another installation")
+	}
+	if secondKey != key {
+		t.Fatal("the device key must be stable")
 	}
 }
 

@@ -82,18 +82,18 @@ log:
   format: "json"                                # MOLISYNC_LOG_FORMAT (json|text)
 
 telemetry:
-  # Anonymous aggregate report used for the project's usage statistics.
-  # Only counters leave the deployment: device totals, 7/30-day actives,
-  # platform split, record counts and versions. Device identifiers are hashed
-  # with a per-deployment salt inside SQLite; names, IPs and content are never
-  # collected. Set enabled to false to opt out entirely.
+  # Anonymous install counting: the server POSTs one event the first time a
+  # device ever connects, and never again. The event holds a deployment-scoped
+  # opaque id, the platform and the server version. No device identifier, name,
+  # IP or content is sent.
+  #
+  # The default endpoint is the project's public counter. Set enabled to false
+  # (or MOLISYNC_TELEMETRY_ENABLED=false) to opt out; an empty endpoint also
+  # disables reporting.
   enabled: true                                 # MOLISYNC_TELEMETRY_ENABLED
-  # An empty endpoint keeps reporting off, which is the safe default for
-  # existing installations. Point it at your collector to enable.
-  endpoint: ""                                  # MOLISYNC_TELEMETRY_ENDPOINT
-  # Optional shared bearer token; must match the collector's token.
+  endpoint: "https://statistics-api.molirain.com/install"  # MOLISYNC_TELEMETRY_ENDPOINT
+  # Optional bot filter; only needed when the counter operator enables one.
   token: ""                                     # MOLISYNC_TELEMETRY_TOKEN
-  interval: 24h                                 # MOLISYNC_TELEMETRY_INTERVAL
   timeout: 10s                                  # MOLISYNC_TELEMETRY_TIMEOUT
 
 update_check:

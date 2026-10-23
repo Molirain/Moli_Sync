@@ -26,7 +26,6 @@ concurrency:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/molisync-server
-  COLLECTOR_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/molisync-collector
 
 jobs:
   verify:
@@ -91,16 +90,6 @@ jobs:
             type=raw,value=${{ steps.version.outputs.value }}
             type=sha,format=short
 
-      - name: Extract collector metadata
-        id: collector-meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.COLLECTOR_IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ steps.version.outputs.value }}
-            type=sha,format=short
-
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -123,22 +112,5 @@ jobs:
             VERSION=${{ steps.version.outputs.value }}
           cache-from: type=gha,scope=server
           cache-to: type=gha,mode=max,scope=server
-          provenance: true
-          sbom: true
-
-      - name: Build and push collector image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./server
-          file: ./server/Dockerfile
-          target: collector
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.collector-meta.outputs.tags }}
-          labels: ${{ steps.collector-meta.outputs.labels }}
-          build-args: |
-            VERSION=${{ steps.version.outputs.value }}
-          cache-from: type=gha,scope=collector
-          cache-to: type=gha,mode=max,scope=collector
           provenance: true
           sbom: true

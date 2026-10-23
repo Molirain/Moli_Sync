@@ -232,11 +232,11 @@ P2P 信令：客户端发送 `open_session`（`to_device_id`，可选 `transfer_
 - `GET /api/v1/stats`（需设备身份）返回本部署的设备总数、当前在线、7/30 天活跃、平台分布、记录数与字节数，以及 `server_update` 与 `telemetry` 状态。
 - `GET /api/v1/me` 额外返回 `server_version` 与 `server_update`；客户端据此提示“服务端需要升级”，无需自己查询 GitHub。
 - 设备活跃度在 `hello` 时写入 `devices` 表，标识是 `HMAC-SHA256(每部署随机盐, 证书指纹)`，数据库里没有可逆指纹。
-- `telemetry` 段控制匿名聚合上报：默认 `endpoint` 为空即关闭；设置后端每 24 小时 POST 一次聚合计数，不含设备标识、名称、IP 或记录内容。
-- 收集器的 `installations` 是**单调递增的安装总数**（每个部署按唯一设备计一次，取历史最大值求和）；`install_events` 只按天记录新增数量，不存设备标识。`GET /v1/stats?format=text` 输出适合终端阅读的摘要。
+- `telemetry` 段控制**首次安装上报**：设备第一次连上服务端时 POST 一次事件，之后不再上报。默认 `endpoint` 为空即关闭；事件只含部署内唯一的哈希 ID、平台与版本，不含设备标识、名称、IP 或记录内容。
+- 计数端是 Cloudflare Worker + D1（见 [`worker/`](../worker/)），按主键去重，服务端重试不会重复计数。`GET /v1/stats?format=text` 输出安装数、部署数与平台分布。
 - `update_check` 段控制服务端自检，每 12 小时读一次 `server-vX.Y.Z` release；`version` 为 `dev` 的开发构建会自动跳过。
 
-发布使用分端 tag：`server-vX.Y.Z` 只构建服务端与收集器镜像，`desktop-vX.Y.Z` 与 `android-vX.Y.Z` 互不影响。
+发布使用分端 tag：`server-vX.Y.Z` 只构建服务端镜像，`desktop-vX.Y.Z` 与 `android-vX.Y.Z` 互不影响。
 
 ## 安全设计要点
 

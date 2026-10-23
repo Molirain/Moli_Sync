@@ -86,7 +86,7 @@ Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服
 | Windows Avalonia 桌面界面、自动读取系统证书、三栏云同步、图片缩略图与查看器、Range 下载、数据目录迁移与开机自启 | 已实现 |
 | Android KeyChain mTLS、三栏云界面、流式 HTTP 上传、Range 下载、系统分享、基于 PFD 的发送、BLAKE3 分帧与前台服务 | 已实现 |
 | 端到端 P2P 同步、票据交换、可互操作的对端监听、中继 | 已实现（两端均已接入，仍需真实网络回归） |
-| 使用统计：服务端聚合上报 + 独立收集器 + `/api/v1/stats` | 已实现 |
+| 使用统计：设备首次连接时上报一次 + Cloudflare Worker 计数 + 本地 `/api/v1/stats` | 已实现 |
 | 升级提示：Windows / Android 查各自的 release，服务端版本由服务端自检后转达客户端 | 已实现 |
 
 三端的文字同步走服务器；阈值内的图片/文件可存入服务器并由任意授权设备下载，也可以选择直接 P2P。P2P 不可达时自动回退服务端中继，端侧仍持有会话票据做校验。Windows 与 Android 都支持自定义设备名、查看在线设备及其 LAN/VPN 地址。
@@ -97,7 +97,7 @@ Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服
 
 | 组件 | Tag | 触发 |
 | --- | --- | --- |
-| 服务端 / 收集器 | `server-v0.5.1` | 构建 `molisync-server` 与 `molisync-collector` 镜像 |
+| 服务端 | `server-v0.5.1` | 构建 `molisync-server` 镜像 |
 | Windows | `desktop-v0.5.1` | 构建并发布便携版 zip |
 | Android | `android-v0.5.1` | 签名并发布 APK |
 
@@ -108,36 +108,39 @@ Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服
 
 ## 使用统计
 
-**你要看的"使用者数"用 `users`（= 自建部署数）**。MoliSync 是自托管 + 无账号体系，服务端只认证书，没有"人"这个实体，因此只能给出两个可诚实定义的数：
+口径：**每台设备首次连上服务端时上报一次，计数 +1，之后永不再报**。没有周期心跳、没有客户端埋点。
+
+```text
+设备第一次 hello ──> 服务端发现 devices 表里没有它
+                      └─> POST 一次 {event_id, platform, version} 到你的 Worker
+                            └─> D1 INSERT OR IGNORE，计数 +1
+之后每次重连 ──> 只更新 last_seen，不再上报
+```
+
+- `event_id` 是「部署 ID + 盐化设备键」的 SHA-256 前 128 位：同一部署内唯一、跨部署不可关联，Worker 拿不到证书指纹、设备名或 IP。
+- Worker 不记录 IP、不写 Cookie、不存任何可识别字段；服务端重试也是幂等的（主键去重）。
+- 计数器是项目自建的公开端点 `https://statistics-api.molirain.com/install`（Cloudflare Worker + D1），部署细节不在本仓库维护。不想统计就设 `MOLISYNC_TELEMETRY_ENABLED=false`，或把 `telemetry.endpoint` 置空。
 
 | 指标 | 含义 | 对"人数"的偏差 |
 | --- | --- | --- |
-| `users`（deployments） | 有多少套自建服务器 | 最接近使用者；用别人服务器的人不计入 → 偏低 |
-| `installations` | 有多少台设备接入过（每设备只算一次，只增不减） | 一个人「电脑+手机」= 2 → 偏高 |
-
-- 服务端每 24 小时（±10% 抖动）向 `telemetry.endpoint` POST 一份聚合 JSON：随机部署 ID、版本、设备总数、7/30 天活跃、平台分布、记录数与字节数。这只是同步计数器，不是重复计数。
-- 设备标识以**每部署随机盐做 HMAC** 后存进 SQLite，数据库里没有可逆的证书指纹；设备名、IP、记录内容从不上报。
-- 收集器只在 `install_events` 里按天累加**新增安装数**（只存数字，不存是哪个设备），所以安装总数单调递增，同时能看出增长曲线。
-- 默认 `endpoint` 为空即不上报；要开启就部署收集器并填上地址。`MOLISYNC_TELEMETRY_ENABLED=false` 可彻底关闭。
+| `deployments` | 有多少套自建服务器 | **最接近使用者**；用别人服务器的人不计入 → 偏低 |
+| `installations` | 有多少台设备安装过 | 一个人「电脑+手机」= 2 → 偏高 |
 
 一条命令看结果：
 
 ```sh
-curl -H "Authorization: Bearer $MOLISYNC_COLLECTOR_ADMIN_TOKEN" \
-     https://stats.example.com/v1/stats?format=text
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+     "https://statistics-api.molirain.com/stats?format=text"
 ```
 
 ```text
 MoliSync usage
-  users         : 3   (self-hosted deployments; one owner each)
-  installations : 12  (devices; 7d +2, 30d +5)
-  devices       : 12 total, 4 online, 6 active 7d, 9 active 30d
+  installations : 12
+  deployments   : 3
   platforms     : windows 5, android 6, other 1
-  records       : 120 (text 100, image 15, file 5), 1.2 GiB
-  version 0.5.0   : 2 deployment(s), 9 device(s)
 ```
 
-去掉 `?format=text` 则返回同样内容的 JSON（`deployments` 即 `users`）。只想看自己这一套部署：`curl` 带设备证书访问 `https://<你的域名>/api/v1/stats`。
+只看自己这套部署：带设备证书访问 `https://<你的域名>/api/v1/stats`。
 
 ## Docker 快速开始
 
