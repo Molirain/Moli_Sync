@@ -120,8 +120,27 @@ proxy_request_buffering off;
 proxy_buffering off;
 
 proxy_set_header X-Client-Verify $ssl_client_verify;
-proxy_set_header X-Client-Fingerprint $ssl_client_fingerprint;
-proxy_set_header X-Client-DN $ssl_client_s_dn;</code></pre>
+proxy_set_header X-Client-DN $ssl_client_s_dn;
+
+# nginx has no SHA-256 variable: $ssl_client_fingerprint is SHA-1 (40 hex) and
+# the server rejects it with invalid_client_fingerprint. Forward the whole
+# certificate instead and let the server hash it.
+proxy_set_header X-Client-Fingerprint "";
+proxy_set_header X-Client-Cert $ssl_client_escaped_cert;</code></pre>
+
+<p>Server side: set <code>MOLISYNC_PROXY_CERT_HEADER=X-Client-Cert</code>, and mount the same CA bundle into
+the container to enable <code>MOLISYNC_PROXY_CLIENT_CA_FILE</code> (optional, strongly recommended: the server
+then verifies the chain instead of trusting the header).</p>
+
+<div class="callout">
+  <span class="callout-label">Note</span>
+  <p><code>proxy_set_header X-Client-Fingerprint "";</code> blanks the digest header. Blanking it <em>without</em>
+  forwarding <code>X-Client-Cert</code> leaves the server with no identity for pinning: P2P falls back to the
+  relay and the client shows "经服务端中继传输".</p>
+</div>
+
+<p>Proxies that can compute SHA-256 do not need <code>cert_header</code>; Caddy, for example, exposes it as
+<code>{http.request.tls.client.fingerprint}</code>.</p>
 
 <h2 id="map-headers">Map the headers</h2>
 <p>Tell the control plane which header names it should read:</p>
@@ -132,6 +151,8 @@ proxy_set_header X-Client-DN $ssl_client_s_dn;</code></pre>
   <tbody>
     <tr><td><code>MOLISYNC_PROXY_VERIFY_HEADER</code></td><td><code>X-Client-Verify</code></td></tr>
     <tr><td><code>MOLISYNC_PROXY_FINGERPRINT_HEADER</code></td><td><code>X-Client-Fingerprint</code></td></tr>
+    <tr><td><code>MOLISYNC_PROXY_CERT_HEADER</code></td><td><code>X-Client-Cert</code> (optional, whole certificate)</td></tr>
+    <tr><td><code>MOLISYNC_PROXY_CLIENT_CA_FILE</code></td><td>CA path (optional, verifies the certificate header)</td></tr>
     <tr><td><code>MOLISYNC_PROXY_DN_HEADER</code></td><td><code>X-Client-DN</code></td></tr>
   </tbody>
 </table>

@@ -17,8 +17,24 @@ proxy_request_buffering off;
 proxy_buffering off;
 
 proxy_set_header X-Client-Verify $ssl_client_verify;
-proxy_set_header X-Client-Fingerprint $ssl_client_fingerprint;
-proxy_set_header X-Client-DN $ssl_client_s_dn;</code></pre>
+proxy_set_header X-Client-DN $ssl_client_s_dn;
+
+# 关键：nginx 没有 SHA-256 变量，$ssl_client_fingerprint 是 SHA-1（40 位），
+# 服务端会以 invalid_client_fingerprint 拒绝，因此转发整张证书让服务端自己算。
+proxy_set_header X-Client-Fingerprint "";
+proxy_set_header X-Client-Cert $ssl_client_escaped_cert;</code></pre>
+
+<p>对应服务端配置：<code>MOLISYNC_PROXY_CERT_HEADER=X-Client-Cert</code>，并把同一个 CA 证书挂进容器后设置
+<code>MOLISYNC_PROXY_CLIENT_CA_FILE</code>（可选但强烈建议，服务端会再验一次签发链）。</p>
+
+<div class="callout">
+  <span class="callout-label">注意</span>
+  <p><code>proxy_set_header X-Client-Fingerprint "";</code> 会把指纹头清空。如果只写这一行却不转发
+  <code>X-Client-Cert</code>，服务端拿不到任何指纹：P2P 只能走中继（客户端会显示"经服务端中继传输"）。</p>
+</div>
+
+<p>能直接给出 SHA-256 的代理不需要 <code>cert_header</code>：Caddy 用
+<code>{http.request.tls.client.fingerprint}</code>（SHA-256）即可。</p>
 
 <h2 id="map-headers">映射头名称</h2>
 <p>告诉控制面应该读取哪些头：</p>
@@ -29,6 +45,8 @@ proxy_set_header X-Client-DN $ssl_client_s_dn;</code></pre>
   <tbody>
     <tr><td><code>MOLISYNC_PROXY_VERIFY_HEADER</code></td><td><code>X-Client-Verify</code></td></tr>
     <tr><td><code>MOLISYNC_PROXY_FINGERPRINT_HEADER</code></td><td><code>X-Client-Fingerprint</code></td></tr>
+    <tr><td><code>MOLISYNC_PROXY_CERT_HEADER</code></td><td><code>X-Client-Cert</code>（可选，转发整张证书）</td></tr>
+    <tr><td><code>MOLISYNC_PROXY_CLIENT_CA_FILE</code></td><td>CA 路径（可选，校验证书头）</td></tr>
     <tr><td><code>MOLISYNC_PROXY_DN_HEADER</code></td><td><code>X-Client-DN</code></td></tr>
   </tbody>
 </table>
