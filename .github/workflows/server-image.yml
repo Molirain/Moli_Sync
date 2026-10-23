@@ -114,3 +114,29 @@ jobs:
           cache-to: type=gha,mode=max,scope=server
           provenance: true
           sbom: true
+
+  # Clients and the running server read the server-v* namespace, so a tag
+  # without a GitHub Release would be invisible to update checks.
+  release:
+    name: Publish server release notes
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/server-v')
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#server-v}"
+          [[ "$GITHUB_REF_NAME" != "$version" ]]
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "release $GITHUB_REF_NAME already exists"
+            exit 0
+          fi
+          gh release create "$GITHUB_REF_NAME" \
+            --title "MoliSync Server $version" \
+            --generate-notes

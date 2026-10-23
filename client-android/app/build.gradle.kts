@@ -34,7 +34,7 @@ android {
             .get()
             .toInt()
         versionName = providers.environmentVariable("ANDROID_VERSION_NAME")
-            .orElse("0.5.0")
+            .orElse("0.5.1")
             .get()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

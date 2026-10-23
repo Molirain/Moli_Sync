@@ -15,6 +15,10 @@ name: molisync
 services:
   server:
     # Release images are built by .github/workflows/server-image.yml.
+    # "latest" follows the default branch and is rebuilt on every server
+    # release. Pin a tag when you want reproducible upgrades, for example
+    # ghcr.io/molirain/molisync-server:0.5.1 (the tag matches the
+    # server-v0.5.1 release).
     # To build from this checkout instead, comment out "image" and uncomment
     # "build" below.
     image: ghcr.io/molirain/molisync-server:latest

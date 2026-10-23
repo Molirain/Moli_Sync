@@ -325,7 +325,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public DeviceView? SelfDevice => Devices.Self;
 
-    public string Version => typeof(ShellViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.5.0";
+    public string Version => typeof(ShellViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.5.1";
 
     /// <summary>Banner text; null hides the banner entirely.</summary>
     public string? UpdateNotification
