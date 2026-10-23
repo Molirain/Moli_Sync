@@ -108,13 +108,31 @@ All components share a MAJOR.MINOR baseline (the protocol-compatibility generati
 
 ## Usage statistics
 
-Statistics are aggregated by the server and reported once per deployment; clients contain no analytics at all:
+The count is deliberately simple: **one device equals one installation, monotonic**. The server counts distinct devices by their hashed identity, so restarting a device any number of times counts once; the collector keeps the historical maximum per deployment, so deleting a device never lowers the number. Clients contain no analytics at all.
 
 - Every 24 hours (±10% jitter) the server POSTs one aggregate JSON document to `telemetry.endpoint`: a random deployment id, versions, total devices, 7/30-day active devices, platform split, record counts and total bytes.
 - Device identifiers are stored as an **HMAC with a per-deployment random salt**, so the database holds no reversible certificate fingerprint. Names, IP addresses and record contents are never reported.
+- The collector books only the **number** of new installations per UTC day in `install_events` — never which device — so the all-time total only grows while growth stays visible.
 - The endpoint defaults to empty (reporting off). Deploy the collector and set the endpoint to enable it, or set `MOLISYNC_TELEMETRY_ENABLED=false` to opt out entirely.
-- The collector guards `GET /v1/stats` with `MOLISYNC_COLLECTOR_ADMIN_TOKEN`; without it the endpoint returns 503 instead of exposing counts.
-- To see only your own deployment, call `https://<your-host>/api/v1/stats` with a device certificate.
+
+One number is all you need:
+
+```sh
+curl -H "Authorization: Bearer $MOLISYNC_COLLECTOR_ADMIN_TOKEN" \
+     https://stats.example.com/v1/stats?format=text
+```
+
+```text
+MoliSync usage
+  installations : 12  (7d +2, 30d +5)
+  deployments   : 3
+  devices       : 12 total, 4 online, 6 active 7d, 9 active 30d
+  platforms     : windows 5, android 6, other 1
+  records       : 120 (text 100, image 15, file 5), 1.2 GiB
+  version 0.5.0   : 2 deployment(s), 9 device(s)
+```
+
+Drop `?format=text` for the same data as JSON. To see only your own deployment, call `https://<your-host>/api/v1/stats` with a device certificate.
 
 ## Quick start with Docker
 

@@ -54,15 +54,20 @@ type RecordCounts struct {
 	Bytes int64 `json:"bytes"`
 }
 
-// Totals is the cross-deployment summary.
+// Measure is the cross-deployment summary.
 type Totals struct {
-	GeneratedAt int64          `json:"generated_at"`
-	Deployments int            `json:"deployments"`
-	FirstSeen   int64          `json:"first_seen,omitempty"`
-	Devices     DeviceTotals   `json:"devices"`
-	Platforms   PlatformCounts `json:"platforms"`
-	Records     RecordCounts   `json:"records"`
-	Versions    []VersionCount `json:"versions"`
+	GeneratedAt int64 `json:"generated_at"`
+	// Installations counts every device that ever joined any deployment. It
+	// only grows: a device is counted once, and deleting one never subtracts.
+	Installations int            `json:"installations"`
+	Deployments   int            `json:"deployments"`
+	FirstSeen     int64          `json:"first_seen,omitempty"`
+	NewLast7Days  int            `json:"new_installations_7d"`
+	NewLast30Days int            `json:"new_installations_30d"`
+	Devices       DeviceTotals   `json:"devices"`
+	Platforms     PlatformCounts `json:"platforms"`
+	Records       RecordCounts   `json:"records"`
+	Versions      []VersionCount `json:"versions"`
 }
 
 // DeviceTotals is the device summary across deployments.
@@ -127,6 +132,13 @@ func Open(dataDir string) (*Store, error) {
 			records_file INTEGER NOT NULL,
 			records_bytes INTEGER NOT NULL
 		)`,
+		// One row per UTC day, holding how many devices first appeared that
+		// day across all deployments. Only a number is stored: the collector
+		// never learns which device it was.
+		`CREATE TABLE IF NOT EXISTS install_events (
+			day TEXT PRIMARY KEY,
+			new_installations INTEGER NOT NULL
+		)`,
 	} {
 		if _, err := db.Exec(statement); err != nil {
 			_ = db.Close()
@@ -148,9 +160,26 @@ func Open(dataDir string) (*Store, error) {
 func (s *Store) Close() error { return s.db.Close() }
 
 // Record stores the latest report of a deployment. The device total is kept at
-// its maximum so removing a device does not lower the historical user count.
+// its maximum, so removing a device never lowers the installation count, and
+// the difference against the stored total is booked as a first-install event
+// for the reporting day.
 func (s *Store) Record(ctx context.Context, report Report) error {
-	_, err := s.db.ExecContext(ctx,
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("collector: begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var previous int
+	err = tx.QueryRowContext(ctx,
+		`SELECT devices_total FROM deployments WHERE deployment_id = ?`,
+		report.DeploymentID,
+	).Scan(&previous)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("collector: read previous report: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO deployments (
 			deployment_id, server_version, first_seen, reported_at,
 			devices_total, active_7d, active_30d, online,
@@ -186,9 +215,24 @@ func (s *Store) Record(ctx context.Context, report Report) error {
 		report.Records.Image,
 		report.Records.File,
 		report.Records.Bytes,
-	)
-	if err != nil {
+	); err != nil {
 		return fmt.Errorf("collector: record report: %w", err)
+	}
+
+	if delta := report.Devices.Total - previous; delta > 0 {
+		day := time.Unix(report.ReportedAt, 0).UTC().Format("2006-01-02")
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO install_events (day, new_installations) VALUES (?, ?)
+			 ON CONFLICT(day) DO UPDATE SET
+				new_installations = install_events.new_installations + excluded.new_installations`,
+			day, delta,
+		); err != nil {
+			return fmt.Errorf("collector: record installations: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("collector: commit report: %w", err)
 	}
 	return nil
 }
@@ -230,6 +274,22 @@ func (s *Store) Totals(ctx context.Context) (Totals, error) {
 	)
 	if err != nil {
 		return Totals{}, fmt.Errorf("collector: sum totals: %w", err)
+	}
+
+	// Installations are the sum of every deployment's all-time device total;
+	// the weekly and monthly figures come from the per-day deltas.
+	totals.Installations = totals.Devices.Total
+
+	now := s.now().UTC()
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT
+			COALESCE(SUM(CASE WHEN day >= ? THEN new_installations ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN day >= ? THEN new_installations ELSE 0 END), 0)
+		 FROM install_events`,
+		now.AddDate(0, 0, -7).Format("2006-01-02"),
+		now.AddDate(0, 0, -30).Format("2006-01-02"),
+	).Scan(&totals.NewLast7Days, &totals.NewLast30Days); err != nil {
+		return Totals{}, fmt.Errorf("collector: sum installations: %w", err)
 	}
 
 	rows, err := s.db.QueryContext(ctx,

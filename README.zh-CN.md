@@ -108,13 +108,31 @@ Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服
 
 ## 使用统计
 
-统计是**服务端聚合、单点上报**，客户端不参与、也没有任何埋点：
+口径很简单：**一台设备 = 一个安装数，只 +1，永不减**。服务端按哈希后的唯一设备计数，同一台设备重启多少次都只算 1；收集器再对每个部署取历史最大值求和，所以删设备也不会让数字变小。客户端没有任何埋点。
 
-- 服务端每 24 小时（±10% 抖动）向 `telemetry.endpoint` POST 一份聚合 JSON：随机部署 ID、版本、设备总数、7/30 天活跃设备数、平台分布、记录数与总字节数。
+- 服务端每 24 小时（±10% 抖动）向 `telemetry.endpoint` POST 一份聚合 JSON：随机部署 ID、版本、设备总数、7/30 天活跃、平台分布、记录数与字节数。
 - 设备标识以**每部署随机盐做 HMAC** 后存进 SQLite，数据库里没有可逆的证书指纹；设备名、IP、记录内容从不上报。
+- 收集器只在 `install_events` 里按天累加**新增安装数**（只存数字，不存是哪个设备），因此历史安装总数单调递增，同时能看出增长曲线。
 - 默认 `endpoint` 为空即不上报；要开启就部署收集器并填上地址。`MOLISYNC_TELEMETRY_ENABLED=false` 可彻底关闭。
-- 收集器用 `MOLISYNC_COLLECTOR_ADMIN_TOKEN` 保护 `GET /v1/stats`，未配置时该端点直接 503，不会意外公开。
-- 只想看自己这一套部署：`curl` 带设备证书访问 `https://<你的域名>/api/v1/stats`。
+
+你只需要看一个数字：
+
+```sh
+curl -H "Authorization: Bearer $MOLISYNC_COLLECTOR_ADMIN_TOKEN" \
+     https://stats.example.com/v1/stats?format=text
+```
+
+```text
+MoliSync usage
+  installations : 12  (7d +2, 30d +5)
+  deployments   : 3
+  devices       : 12 total, 4 online, 6 active 7d, 9 active 30d
+  platforms     : windows 5, android 6, other 1
+  records       : 120 (text 100, image 15, file 5), 1.2 GiB
+  version 0.5.0   : 2 deployment(s), 9 device(s)
+```
+
+去掉 `?format=text` 则返回同样内容的 JSON。只想看自己这一套部署：`curl` 带设备证书访问 `https://<你的域名>/api/v1/stats`。
 
 ## Docker 快速开始
 

@@ -166,6 +166,13 @@ func handleStats(
 	}
 	totals.GeneratedAt = now().UTC().Unix()
 
+	if strings.EqualFold(r.URL.Query().Get("format"), "text") {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, RenderText(totals))
+		return
+	}
+
 	payload, err := json.Marshal(totals)
 	if err != nil {
 		logger.Error("encode totals", "error", err)
@@ -175,6 +182,49 @@ func handleStats(
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(payload)
+}
+
+// RenderText formats the totals for a terminal, leading with the one number an
+// operator usually wants: how many installations exist.
+func RenderText(totals Totals) string {
+	var builder strings.Builder
+	builder.WriteString("MoliSync usage\n")
+	fmt.Fprintf(&builder, "  installations : %d  (7d +%d, 30d +%d)\n",
+		totals.Installations, totals.NewLast7Days, totals.NewLast30Days)
+	fmt.Fprintf(&builder, "  deployments   : %d\n", totals.Deployments)
+	fmt.Fprintf(&builder, "  devices       : %d total, %d online, %d active 7d, %d active 30d\n",
+		totals.Devices.Total, totals.Devices.Online, totals.Devices.Active7d, totals.Devices.Active30d)
+	fmt.Fprintf(&builder, "  platforms     : windows %d, android %d, other %d\n",
+		totals.Platforms.Windows, totals.Platforms.Android, totals.Platforms.Other)
+	fmt.Fprintf(&builder, "  records       : %d (text %d, image %d, file %d), %s\n",
+		totals.Records.Text+totals.Records.Image+totals.Records.File,
+		totals.Records.Text, totals.Records.Image, totals.Records.File,
+		formatBytes(totals.Records.Bytes))
+	for _, version := range totals.Versions {
+		label := version.Version
+		if label == "" {
+			label = "(unknown)"
+		}
+		fmt.Fprintf(&builder, "  version %-8s: %d deployment(s), %d device(s)\n",
+			label, version.Deployments, version.Devices)
+	}
+	return builder.String()
+}
+
+func formatBytes(value int64) string {
+	const unit = 1024
+	if value < unit {
+		return fmt.Sprintf("%d B", value)
+	}
+	units := []string{"KiB", "MiB", "GiB", "TiB", "PiB"}
+	size := float64(value)
+	for _, name := range units {
+		size /= unit
+		if size < unit {
+			return fmt.Sprintf("%.1f %s", size, name)
+		}
+	}
+	return fmt.Sprintf("%.1f EiB", size)
 }
 
 // Validate rejects reports that cannot come from a healthy deployment.

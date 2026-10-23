@@ -1,8 +1,8 @@
-﻿# 《MoliSync 分布式跨端同步与点对点流式互传系统技术架构白皮书》
+# 《MoliSync 分布式跨端同步与点对点流式互传系统技术架构白皮书》
 
 * **项目代号**：MoliSync
 * **基准域名**：`sync.molirain.com`
-* **安全基线**：复用宿主机私有 PKI（`/home/camellia/npm/data/mtls/`），全链路 mTLS + 端到端加密（E2EE）
+* **安全基线**：复用宿主机私有 PKI（`/srv/mtls/`），全链路 mTLS + 端到端加密（E2EE）
 * **目标平台**：Debian 13（Server）、Windows 10/11（Client）、Android 10+（Client）
 
 ---
@@ -40,7 +40,7 @@ MoliSync 采用控制面中心化（Nginx mTLS 网关卸载 + Debian 核心服�
 
 ## 二、 PKI 证书复用与端侧无感接入设计
 
-系统完全复用现有 `/home/camellia/npm/data/mtls/` 下的 CA 体系与 CRL 吊销列表，无需重复建设证书链。
+系统完全复用现有 `/srv/mtls/` 下的 CA 体系与 CRL 吊销列表，无需重复建设证书链。
 
 ### 1. 网关层身份透传（Nginx 配置扩展）
 
@@ -267,7 +267,7 @@ message P2PTransferOffer {
 ### 1. 宿主机与容器挂载规划
 
 ```text
-/home/camellia/npm/data/mtls/
+/srv/mtls/
 ├── ca.crt                  # 现有根证书 (只读挂载至 Nginx 与 MoliSync 容器)
 └── crl.pem                 # 现有吊销列表 (只读挂载至 Nginx 与 MoliSync 容器)
 

@@ -17,6 +17,9 @@ func openTestStore(t *testing.T) *Store {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
+	// Report timestamps come from fixedNow, so the store clock must match or
+	// the rolling windows would be measured from the real date.
+	store.now = fixedNow
 	t.Cleanup(func() { _ = store.Close() })
 	return store
 }
@@ -98,6 +101,80 @@ func TestRecordKeepsTheHighestDeviceTotal(t *testing.T) {
 	if totals.Records.Text != 20 {
 		t.Fatalf("text records = %d, want the latest value 20", totals.Records.Text)
 	}
+	// 5 devices, then a report that removed two: the count stays at 5 and no
+	// negative installation is booked.
+	if totals.Installations != 5 {
+		t.Fatalf("installations = %d, want 5", totals.Installations)
+	}
+	if totals.NewLast7Days != 5 {
+		t.Fatalf("new installations = %d, want 5", totals.NewLast7Days)
+	}
+}
+
+func TestRecordCountsOnlyFirstInstallations(t *testing.T) {
+	store := openTestStore(t)
+	ctx := context.Background()
+
+	report := validReport()
+	report.Devices = DeviceCounts{Total: 2, Active7d: 2, Active30d: 2}
+	if err := store.Record(ctx, report); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+
+	// Re-reporting the same device count must not add another installation.
+	if err := store.Record(ctx, report); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+
+	report.Devices = DeviceCounts{Total: 3, Active7d: 3, Active30d: 3}
+	if err := store.Record(ctx, report); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+
+	totals, err := store.Totals(ctx)
+	if err != nil {
+		t.Fatalf("Totals: %v", err)
+	}
+	if totals.Installations != 3 {
+		t.Fatalf("installations = %d, want 3", totals.Installations)
+	}
+	if totals.NewLast7Days != 3 {
+		t.Fatalf("new installations = %d, want 3", totals.NewLast7Days)
+	}
+}
+
+func TestInstallationsOutsideTheWindowAreNotCountedAsNew(t *testing.T) {
+	store := openTestStore(t)
+	ctx := context.Background()
+	now := fixedNow()
+
+	old := validReport()
+	old.ReportedAt = now.Add(-20 * 24 * time.Hour).Unix()
+	old.Devices = DeviceCounts{Total: 2, Active7d: 2, Active30d: 2}
+	if err := store.Record(ctx, old); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+
+	fresh := old
+	fresh.ReportedAt = now.Unix()
+	fresh.Devices = DeviceCounts{Total: 4, Active7d: 4, Active30d: 4}
+	if err := store.Record(ctx, fresh); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+
+	totals, err := store.Totals(ctx)
+	if err != nil {
+		t.Fatalf("Totals: %v", err)
+	}
+	if totals.Installations != 4 {
+		t.Fatalf("installations = %d, want 4", totals.Installations)
+	}
+	if totals.NewLast7Days != 2 {
+		t.Fatalf("new_7d = %d, want only today's 2", totals.NewLast7Days)
+	}
+	if totals.NewLast30Days != 4 {
+		t.Fatalf("new_30d = %d, want 4", totals.NewLast30Days)
+	}
 }
 
 func TestTotalsSumAcrossDeploymentsAndGroupVersions(t *testing.T) {
@@ -127,6 +204,12 @@ func TestTotalsSumAcrossDeploymentsAndGroupVersions(t *testing.T) {
 	}
 	if totals.Devices.Total != 6 {
 		t.Fatalf("devices = %d, want 6", totals.Devices.Total)
+	}
+	if totals.Installations != 6 {
+		t.Fatalf("installations = %d, want 6", totals.Installations)
+	}
+	if totals.NewLast7Days != 6 || totals.NewLast30Days != 6 {
+		t.Fatalf("new installations = %d/%d, want 6/6", totals.NewLast7Days, totals.NewLast30Days)
 	}
 	if totals.Platforms.Windows != 2 || totals.Platforms.Android != 4 {
 		t.Fatalf("platforms = %+v", totals.Platforms)
@@ -176,6 +259,37 @@ func TestHandlerAcceptsReportAndServesStats(t *testing.T) {
 	}
 	if totals.Deployments != 1 || totals.Devices.Total != 4 {
 		t.Fatalf("unexpected totals: %+v", totals)
+	}
+}
+
+func TestHandlerRendersTextSummary(t *testing.T) {
+	store := openTestStore(t)
+	handler := NewHandler(store, HandlerOptions{
+		AdminToken: "admin-token-1234567890",
+		Now:        fixedNow,
+	})
+
+	body, _ := json.Marshal(validReport())
+	request := httptest.NewRequest(http.MethodPost, "/v1/report", strings.NewReader(string(body)))
+	handler.ServeHTTP(httptest.NewRecorder(), request)
+
+	request = httptest.NewRequest(http.MethodGet, "/v1/stats?format=text", nil)
+	request.Header.Set("Authorization", "Bearer admin-token-1234567890")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d", recorder.Code)
+	}
+	if contentType := recorder.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "text/plain") {
+		t.Fatalf("content type = %q", contentType)
+	}
+	text := recorder.Body.String()
+	if !strings.Contains(text, "installations : 4") {
+		t.Fatalf("missing installation headline:\n%s", text)
+	}
+	if !strings.Contains(text, "deployments   : 1") {
+		t.Fatalf("missing deployment count:\n%s", text)
 	}
 }
 
