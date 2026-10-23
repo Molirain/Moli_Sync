@@ -41,7 +41,7 @@ module.exports = {
         ]
       },
       maxWidth: {
-        page: "1180px"
+        page: "1400px"
       },
       transitionTimingFunction: {
         out: "cubic-bezier(0, 0, 0.2, 1)"

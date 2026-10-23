@@ -73,21 +73,21 @@
   }
 
   .hero-title {
-    font-size: clamp(2.15rem, 4.2vw, 3.35rem);
+    font-size: clamp(2.3rem, 4.2vw, 3.8rem);
     line-height: 1.06;
     letter-spacing: -0.035em;
     font-weight: 500;
   }
 
   html[lang^="zh"] .hero-title {
-    font-size: clamp(1.95rem, 4vw, 3.05rem);
+    font-size: clamp(2.2rem, 4.4vw, 4rem);
     line-height: 1.18;
     letter-spacing: -0.01em;
     font-weight: 600;
   }
 
   .section-title {
-    font-size: clamp(1.7rem, 3vw, 2.2rem);
+    font-size: clamp(1.75rem, 3.2vw, 2.6rem);
     line-height: 1.15;
     letter-spacing: -0.03em;
     font-weight: 500;
@@ -148,6 +148,10 @@
   .flow-line {
     stroke-dasharray: 4 5;
     animation: path-flow 1.6s linear infinite;
+  }
+
+  .sponsor-button {
+    @apply inline-flex items-center justify-center rounded-[3px] border border-accent bg-accent px-2.5 py-1 font-mono text-[9.5px] uppercase tracking-[0.08em] text-ink transition-colors duration-150 ease-out hover:bg-[#32D7D4];
   }
 
   .btn {

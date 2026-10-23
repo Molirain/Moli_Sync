@@ -243,7 +243,8 @@ function footer() {
     <div class="mx-auto flex max-w-page flex-col gap-2 px-5 py-6 font-mono text-[9px] uppercase tracking-[0.08em] text-faint sm:flex-row sm:items-center sm:justify-between sm:px-8">
       <span>© <span id="year">2026</span> MoliSync</span>
       <span data-i18n="footer.license">No repository-wide license has been declared yet.</span>
-      <a class="link-quiet hover:text-accent" href="../index.html?sponsor=1" data-i18n="footer.sponsor">Sponsor</a>
+      <a class="link-quiet normal-case tracking-normal hover:text-accent" href="mailto:contact@molirain.com">contact@molirain.com</a>
+      <a class="sponsor-button" href="../index.html?sponsor=1" data-i18n="footer.sponsor">Sponsor</a>
       <a class="link-quiet hover:text-accent" href="../privacy.html" data-i18n="footer.links.privacy">Privacy</a>
       <a class="link-quiet hover:text-accent" href="../index.html" data-i18n="manual.ui.home">Home ↗</a>
     </div>
