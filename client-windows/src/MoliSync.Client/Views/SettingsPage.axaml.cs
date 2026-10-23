@@ -36,6 +36,19 @@ public partial class SettingsPage : UserControl
         AutoCopyToggle.IsChecked = shell.Settings.AutoCopyText;
     }
 
+    private async void CheckUpdates_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (Shell is not { } shell)
+        {
+            return;
+        }
+        await shell.CheckForUpdatesAsync(force: true);
+        if (shell.UpdateUrl is { Length: > 0 } url && shell.HasUpdateNotification)
+        {
+            MainWindow.OpenExternal(url);
+        }
+    }
+
     private async void Save_OnClick(object? sender, RoutedEventArgs e)
     {
         if (Shell is not { } shell)

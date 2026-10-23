@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using MoliSync.Client.Http;
 using MoliSync.Client.Logging;
-
 namespace MoliSync.Client.Services;
 
 /// <summary>
@@ -55,6 +54,28 @@ public sealed class CloudRepository
 
         var parsed = JsonSerializer.Deserialize(body, CloudJsonContext.Default.RecordsResponse);
         return parsed?.Records ?? new List<CloudRecord>();
+    }
+
+    public async Task<ServerInfo?> GetServerInfoAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(_baseUri, "api/v1/me"));
+            using var response = await _http
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+            var body = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+            return JsonSerializer.Deserialize(body, CloudJsonContext.Default.ServerInfo);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException or TaskCanceledException)
+        {
+            _log.Debug($"cannot read server info: {exception.Message}");
+            return null;
+        }
     }
 
     public async Task<CloudRecord> PostTextAsync(string text, CancellationToken cancellationToken)

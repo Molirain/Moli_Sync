@@ -107,7 +107,10 @@
             <StackPanel>
               <TextBlock Text="关于 MoliSync" Classes="h2" />
               <TextBlock Text="{Binding Version, StringFormat='Windows 客户端 {0} · 协议 v1'}" Classes="caption" />
+              <TextBlock Text="{Binding UpdateStatusText}" Classes="caption" Margin="0,3,0,0" />
             </StackPanel>
+            <Button Grid.Column="1" Classes="small" Click="CheckUpdates_OnClick"
+                    IsEnabled="{Binding !IsCheckingUpdates}">检查更新</Button>
             <Button Grid.Column="2" Classes="small" Click="OpenLogs_OnClick">查看日志</Button>
             <Button Grid.Column="3" Classes="small" Click="Save_OnClick">保存</Button>
           </Grid>

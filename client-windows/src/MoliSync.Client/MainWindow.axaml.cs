@@ -42,6 +42,7 @@ public partial class MainWindow : Window
         _settingsPage = new SettingsPage { DataContext = _shell };
 
         _shell.Notification += ShowToast;
+        _shell.PropertyChanged += Shell_OnPropertyChanged;
         _settingsPage.SettingsChanged += SettingsPage_OnSettingsChanged;
         _settingsPage.ReconfigureRequested += SettingsPage_OnReconfigureRequested;
 
@@ -57,8 +58,7 @@ public partial class MainWindow : Window
 
     protected override async void OnOpened(EventArgs e)
     {
-        base.OnOpened(e);
-        if (_initialized)
+        base.OnOpened(e);        if (_initialized)
         {
             return;
         }
@@ -308,9 +308,45 @@ public partial class MainWindow : Window
 
     private void SettingsPage_OnReconfigureRequested(object? sender, EventArgs e) => ShowSetup(null);
 
-    private void ShowToast(string message)
+    private void Shell_OnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        ToastText.Text = message.Length > 160 ? message[..160] + "…" : message;
+        if (e.PropertyName is not (nameof(ShellViewModel.HasUpdateNotification) or null))
+        {
+            return;
+        }
+        UpdateBanner.IsVisible = _shell.HasUpdateNotification;
+        UpdateBannerText.Text = _shell.UpdateNotification ?? string.Empty;
+    }
+
+    private void UpdateBannerClose_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+        _shell.DismissUpdate();
+
+    private void UpdateBannerDownload_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+        OpenExternal(_shell.UpdateUrl);
+
+    internal static void OpenExternal(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url) ||
+            !Uri.TryCreate(url, UriKind.Absolute, out var target) ||
+            target.Scheme != Uri.UriSchemeHttps)
+        {
+            return;
+        }
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(target.AbsoluteUri)
+            {
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception)
+        {
+            // A missing browser association must not break the app.
+        }
+    }
+
+    private void ShowToast(string message)
+    {        ToastText.Text = message.Length > 160 ? message[..160] + "…" : message;
         ToastHost.IsVisible = true;
         _toastTimer.Stop();
         _toastTimer.Start();

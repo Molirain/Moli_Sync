@@ -249,6 +249,10 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     private string _statusText = "未连接";
     private bool _isRefreshing;
     private double _thresholdMiB;
+    private string? _updateNotification;
+    private string? _updateUrl;
+    private string _updateStatus = "尚未检查更新";
+    private bool _isCheckingUpdates;
 
     public ShellViewModel(AppSettings settings, IClientLog log)
     {
@@ -321,7 +325,40 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public DeviceView? SelfDevice => Devices.Self;
 
-    public string Version => typeof(ShellViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.4.0";
+    public string Version => typeof(ShellViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.5.0";
+
+    /// <summary>Banner text; null hides the banner entirely.</summary>
+    public string? UpdateNotification
+    {
+        get => _updateNotification;
+        private set
+        {
+            if (Set(ref _updateNotification, value))
+            {
+                OnPropertyChanged(nameof(HasUpdateNotification));
+            }
+        }
+    }
+
+    public bool HasUpdateNotification => !string.IsNullOrEmpty(_updateNotification);
+
+    public string? UpdateUrl
+    {
+        get => _updateUrl;
+        private set => Set(ref _updateUrl, value);
+    }
+
+    public string UpdateStatusText
+    {
+        get => _updateStatus;
+        private set => Set(ref _updateStatus, value);
+    }
+
+    public bool IsCheckingUpdates
+    {
+        get => _isCheckingUpdates;
+        private set => Set(ref _isCheckingUpdates, value);
+    }
 
     public string DeviceName
     {
@@ -366,6 +403,10 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(DataDirectory));
         OnPropertyChanged(nameof(DeviceName));
         OnPropertyChanged(nameof(OnlineText));
+
+        // Best effort and off the connect path: never delay the shell for a
+        // release lookup.
+        _ = CheckForUpdatesAsync(false);
     }
 
     public void Detach()
@@ -393,8 +434,63 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(OnlineText));
     }
 
-    public void UpdateSettings(AppSettings settings)
+    /// <summary>
+    /// Checks the desktop release namespace and asks the server whether the
+    /// server itself is behind. Both are best effort: failures only update the
+    /// status line.
+    /// </summary>
+    public async Task CheckForUpdatesAsync(bool force, CancellationToken cancellationToken = default)
     {
+        var session = _session;
+        if (session is null)
+        {
+            UpdateStatusText = "尚未连接服务器";
+            return;
+        }
+
+        IsCheckingUpdates = true;
+        try
+        {
+            var desktop = await session.Updates.CheckAsync(force, cancellationToken).ConfigureAwait(true);
+            var serverInfo = await session.Cloud.GetServerInfoAsync(cancellationToken).ConfigureAwait(true);
+
+            var messages = new List<string>();
+            string? url = null;
+
+            if (desktop is not null && UpdateChecker.Compare(desktop.Version, session.Updates.CurrentVersion) > 0)
+            {
+                messages.Add($"桌面端 {desktop.Version} 已发布（当前 {session.Updates.CurrentVersion}）");
+                url = desktop.Url;
+            }
+
+            var serverUpdate = serverInfo?.ServerUpdate;
+            if (serverUpdate is { UpToDate: false, Latest: { Length: > 0 } latest })
+            {
+                messages.Add($"服务端 {latest} 已发布（当前 {serverUpdate.Current}），请升级服务器");
+                url ??= serverUpdate.UpdateUrl;
+            }
+
+            UpdateNotification = messages.Count == 0 ? null : string.Join("；", messages);
+            UpdateUrl = url;
+
+            UpdateStatusText = messages.Count > 0
+                ? "发现可用更新"
+                : session.Updates.LastError is { Length: > 0 } error
+                    ? $"检查失败：{error}"
+                    : $"已是最新版本（{session.Updates.CurrentVersion}）";
+        }
+        finally
+        {
+            IsCheckingUpdates = false;
+        }
+    }
+
+    public void DismissUpdate()
+    {
+        UpdateNotification = null;
+    }
+
+    public void UpdateSettings(AppSettings settings)    {
         ArgumentNullException.ThrowIfNull(settings);
         settings.Normalize();
         Settings = settings;

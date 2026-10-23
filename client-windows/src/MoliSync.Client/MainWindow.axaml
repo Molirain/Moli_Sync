@@ -85,7 +85,25 @@
         </Grid>
       </Border>
 
-      <ContentControl Grid.Column="1" x:Name="PageHost" />
+      <Grid Grid.Column="1" RowDefinitions="Auto,*">
+        <Border Grid.Row="0" x:Name="UpdateBanner" IsVisible="False"
+                Background="#F4F7E9" BorderBrush="#DCE4C4" BorderThickness="0,0,0,1"
+                Padding="20,10">
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+            <PathIcon Data="M12,3 A9,9 0 1 0 21,12 H18 A6,6 0 1 1 12,6 Z M13,2 V8 L18,5 Z"
+                      Width="15" Height="15" Foreground="#5B6B34" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" x:Name="UpdateBannerText" Margin="9,0,0,0"
+                       VerticalAlignment="Center" FontSize="12" Foreground="#45512A"
+                       TextTrimming="CharacterEllipsis" />
+            <Button Grid.Column="2" Classes="small" Click="UpdateBannerDownload_OnClick">前往下载</Button>
+            <Button Grid.Column="3" Classes="icon" Click="UpdateBannerClose_OnClick" ToolTip.Tip="忽略"
+                    Margin="6,0,0,0">
+              <PathIcon Data="M6,6 L18,18 M18,6 L6,18" Width="11" Height="11" />
+            </Button>
+          </Grid>
+        </Border>
+        <ContentControl Grid.Row="1" x:Name="PageHost" />
+      </Grid>
     </Grid>
 
     <Border x:Name="ToastHost" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,24" Background="{StaticResource PineBrush}" CornerRadius="10" Padding="16,9">

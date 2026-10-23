@@ -24,7 +24,6 @@ public sealed class AppSession : IAsyncDisposable
     private readonly CancellationTokenSource _cancellation = new();
     private Task? _controlTask;
     private bool _disposed;
-
     private AppSession(
         AppSettings settings,
         PinnedCertificateAuthority? authority,
@@ -37,6 +36,7 @@ public sealed class AppSession : IAsyncDisposable
         ControlPlaneClient control,
         P2pListener p2p,
         PinnedServerCertificateValidator serverValidator,
+        UpdateChecker updates,
         IClientLog log)
     {
         Settings = settings;
@@ -49,6 +49,7 @@ public sealed class AppSession : IAsyncDisposable
         DataDirectory = dataDirectory;
         Control = control;
         P2p = p2p;
+        Updates = updates;
         _serverValidator = serverValidator;
         _log = log;
     }
@@ -66,6 +67,9 @@ public sealed class AppSession : IAsyncDisposable
     public ControlPlaneClient Control { get; }
 
     public P2pListener P2p { get; }
+
+    /// <summary>Desktop-only release check; the cache lives in the data directory.</summary>
+    public UpdateChecker Updates { get; }
 
     public string DeviceId => Identity.DeviceId;
 
@@ -111,6 +115,16 @@ public sealed class AppSession : IAsyncDisposable
             var dataDirectory = new DataDirectoryManager(settings.DataDirectory);
             var cloud = new CloudRepository(http, settings.ServerUrl, dataDirectory, log);
 
+            // Release checks talk to the public GitHub API directly, so they
+            // must not reuse the mTLS client: the client certificate is bound
+            // to the MoliSync server and would leak the identity elsewhere.
+            var updateHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            var updates = new UpdateChecker(
+                updateHttp,
+                log,
+                Path.Combine(settings.DataDirectory, "update-desktop.json"),
+                typeof(AppSession).Assembly.GetName().Version?.ToString(3) ?? "0.0.0");
+
             // The listener is created before the control plane starts so the
             // first hello already advertises a real port.
             var p2p = new P2pListener(identity, settings.DataDirectory, log);
@@ -142,6 +156,7 @@ public sealed class AppSession : IAsyncDisposable
                 control,
                 p2p,
                 validator,
+                updates,
                 log);
         }
         catch

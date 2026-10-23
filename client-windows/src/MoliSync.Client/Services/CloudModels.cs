@@ -65,6 +65,31 @@ public sealed class ApiError
     public string Message { get; set; } = string.Empty;
 }
 
+/// <summary>Reply of <c>GET /api/v1/me</c>, including the server's own update status.</summary>
+public sealed class ServerInfo
+{
+    public string DeviceId { get; set; } = string.Empty;
+
+    public string ServerVersion { get; set; } = string.Empty;
+
+    public ServerUpdateStatus? ServerUpdate { get; set; }
+}
+
+public sealed class ServerUpdateStatus
+{
+    public string Component { get; set; } = string.Empty;
+
+    public string Current { get; set; } = string.Empty;
+
+    public string? Latest { get; set; }
+
+    public string? UpdateUrl { get; set; }
+
+    public bool UpToDate { get; set; } = true;
+
+    public string? LastError { get; set; }
+}
+
 public sealed class CloudException : Exception
 {
     public CloudException(string message, int statusCode = 0, string? code = null, Exception? inner = null)
@@ -87,6 +112,7 @@ public sealed class CloudException : Exception
 [JsonSerializable(typeof(RecordsResponse))]
 [JsonSerializable(typeof(TextRecordRequest))]
 [JsonSerializable(typeof(ApiErrorEnvelope))]
+[JsonSerializable(typeof(ServerInfo))]
 internal sealed partial class CloudJsonContext : JsonSerializerContext
 {
 }

@@ -26,7 +26,7 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
 
-    <Version>0.4.0</Version>
+    <Version>0.5.0</Version>
     <Authors>MoliSync</Authors>
     <Description>MoliSync Windows control-plane and transfer client</Description>
   </PropertyGroup>
