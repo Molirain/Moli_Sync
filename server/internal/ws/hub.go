@@ -55,6 +55,7 @@ type Hub struct {
 	records        *store.Store
 	sessions       *p2p.Store
 	relayPath      string
+	serverVersion  string
 	logger         *slog.Logger
 	now            func() time.Time
 	upgrader       websocket.Upgrader
@@ -172,6 +173,25 @@ func (h *Hub) SetSessions(sessions *p2p.Store) {
 func (h *Hub) SetRelayPath(path string) {
 	if strings.TrimSpace(path) != "" {
 		h.relayPath = strings.TrimSpace(path)
+	}
+}
+
+// SetServerVersion advertises the build version to clients so they can warn
+// the operator when the server lags behind the released version.
+func (h *Hub) SetServerVersion(version string) {
+	h.serverVersion = strings.TrimSpace(version)
+}
+
+// recordDeviceSeen persists device activity for statistics. Failures are
+// logged and ignored: metrics must never break registration.
+func (h *Hub) recordDeviceSeen(deviceID, platform string) {
+	if h.records == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err := h.records.TouchDevice(ctx, deviceID, platform); err != nil {
+		h.logger.Warn("record device activity", "device_id", deviceID, "error", err)
 	}
 }
 

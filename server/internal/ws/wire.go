@@ -110,6 +110,7 @@ type welcomeMessage struct {
 	ServerTime          int64        `json:"server_time"`
 	HeartbeatIntervalMS int64        `json:"heartbeat_interval_ms"`
 	PongTimeoutMS       int64        `json:"pong_timeout_ms"`
+	ServerVersion       string       `json:"server_version,omitempty"`
 	Devices             []DeviceView `json:"devices"`
 }
 

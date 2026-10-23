@@ -13,7 +13,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -25,6 +27,9 @@ const (
 	KindImage = "image"
 	KindFile  = "file"
 )
+
+// ErrMetaNotFound reports a missing key in the meta table.
+var ErrMetaNotFound = errors.New("store: meta key not found")
 
 const (
 	DefaultMaxItemBytes = 64 << 20
@@ -73,6 +78,10 @@ type Store struct {
 	blobDir      string
 	maxItemBytes int64
 	now          func() time.Time
+
+	saltOnce  sync.Once
+	saltValue []byte
+	saltErr   error
 }
 
 // Open creates the data and blob directories and migrates the schema.
@@ -151,11 +160,32 @@ func Open(options Options) (*Store, error) {
 			ON records (kind, created_at DESC, id DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_records_created
 			ON records (created_at DESC, id DESC)`,
+		`CREATE TABLE IF NOT EXISTS devices (
+			device_key TEXT PRIMARY KEY,
+			platform TEXT NOT NULL,
+			first_seen INTEGER NOT NULL,
+			last_seen INTEGER NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_devices_last_seen
+			ON devices (last_seen DESC)`,
+		`CREATE TABLE IF NOT EXISTS meta (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL
+		)`,
 	} {
 		if _, err := db.Exec(statement); err != nil {
 			_ = db.Close()
 			return nil, fmt.Errorf("store: migrate schema: %w", err)
 		}
+	}
+
+	if _, err := db.Exec(
+		`INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING`,
+		metaFirstSeen,
+		strconv.FormatInt(now().UTC().Unix(), 10),
+	); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("store: record first seen: %w", err)
 	}
 
 	return store, nil

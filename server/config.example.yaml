@@ -80,3 +80,27 @@ websocket:
 log:
   level: "info"                                 # MOLISYNC_LOG_LEVEL (debug|info|warn|error)
   format: "json"                                # MOLISYNC_LOG_FORMAT (json|text)
+
+telemetry:
+  # Anonymous aggregate report used for the project's usage statistics.
+  # Only counters leave the deployment: device totals, 7/30-day actives,
+  # platform split, record counts and versions. Device identifiers are hashed
+  # with a per-deployment salt inside SQLite; names, IPs and content are never
+  # collected. Set enabled to false to opt out entirely.
+  enabled: true                                 # MOLISYNC_TELEMETRY_ENABLED
+  # An empty endpoint keeps reporting off, which is the safe default for
+  # existing installations. Point it at your collector to enable.
+  endpoint: ""                                  # MOLISYNC_TELEMETRY_ENDPOINT
+  # Optional shared bearer token; must match the collector's token.
+  token: ""                                     # MOLISYNC_TELEMETRY_TOKEN
+  interval: 24h                                 # MOLISYNC_TELEMETRY_INTERVAL
+  timeout: 10s                                  # MOLISYNC_TELEMETRY_TIMEOUT
+
+update_check:
+  # Looks up the newest "server-vX.Y.Z" release so clients can warn when this
+  # server is behind. One request per interval, not per device.
+  enabled: true                                 # MOLISYNC_UPDATE_CHECK_ENABLED
+  repository: "Molirain/Moli_Sync"              # MOLISYNC_UPDATE_CHECK_REPOSITORY
+  api_base: "https://api.github.com"            # MOLISYNC_UPDATE_CHECK_API_BASE
+  interval: 12h                                 # MOLISYNC_UPDATE_CHECK_INTERVAL
+  timeout: 10s                                  # MOLISYNC_UPDATE_CHECK_TIMEOUT

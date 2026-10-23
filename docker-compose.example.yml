@@ -52,6 +52,19 @@ services:
       MOLISYNC_LOG_LEVEL: "info"
       MOLISYNC_LOG_FORMAT: "json"
 
+      # Anonymous aggregate reporting. The server posts counters only (device
+      # counts, platform split, record counts, versions) once a day to the
+      # collector you deploy. Set MOLISYNC_TELEMETRY_ENABLED to "false" to opt
+      # out completely; no device identity, name, IP or content is ever sent.
+      # MOLISYNC_TELEMETRY_ENDPOINT: "https://stats.example.com/v1/report"
+      # MOLISYNC_TELEMETRY_TOKEN: "shared-report-token-min-16-chars"
+
+      # The server's own release lookup. Clients read the result through
+      # /api/v1/me and warn when the server lags behind the latest
+      # server-vX.Y.Z release. Harmless to disable for air-gapped hosts.
+      MOLISYNC_UPDATE_CHECK_ENABLED: "true"
+      MOLISYNC_UPDATE_CHECK_REPOSITORY: "Molirain/Moli_Sync"
+
     # No "ports": the proxy is the only ingress.
     expose:
       - "9520"

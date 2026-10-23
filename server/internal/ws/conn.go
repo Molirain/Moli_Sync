@@ -213,6 +213,7 @@ func (c *connection) handleHello(message inbound) bool {
 		c.fail(CodeServerShuttingDown, "server is shutting down", websocket.CloseGoingAway, "server shutting down")
 		return false
 	}
+	c.hub.recordDeviceSeen(c.identity.DeviceID, platform)
 	_ = c.ws.SetReadDeadline(c.hub.now().Add(c.hub.options.PongTimeout))
 
 	welcome, err := newOutbound(welcomeMessage{
@@ -222,6 +223,7 @@ func (c *connection) handleHello(message inbound) bool {
 		ServerTime:          c.hub.now().UnixMilli(),
 		HeartbeatIntervalMS: c.hub.options.HeartbeatInterval.Milliseconds(),
 		PongTimeoutMS:       c.hub.options.PongTimeout.Milliseconds(),
+		ServerVersion:       c.hub.serverVersion,
 		Devices:             c.hub.deviceViewsExcept(c.identity.DeviceID),
 	})
 	if err != nil {

@@ -21,6 +21,12 @@ import (
 
 func newTestRouter(t *testing.T) http.Handler {
 	t.Helper()
+	return NewRouter(testDeps(t))
+}
+
+// testDeps builds the authenticated router dependencies shared by the tests.
+func testDeps(t *testing.T) Deps {
+	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	middleware, err := auth.NewMiddleware(auth.Options{
@@ -61,7 +67,7 @@ func newTestRouter(t *testing.T) http.Handler {
 		_ = hub.Shutdown(shutdownContext)
 	})
 
-	return NewRouter(Deps{Auth: middleware, Hub: hub, Logger: logger})
+	return Deps{Auth: middleware, Hub: hub, Logger: logger}
 }
 
 func performRequest(t *testing.T, router http.Handler, method, path, remote string, headers map[string]string) *httptest.ResponseRecorder {

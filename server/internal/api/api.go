@@ -3,6 +3,7 @@ package api
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,17 +19,24 @@ import (
 	"github.com/molirain/molisync/server/internal/auth"
 	"github.com/molirain/molisync/server/internal/p2p"
 	"github.com/molirain/molisync/server/internal/store"
+	"github.com/molirain/molisync/server/internal/telemetry"
+	"github.com/molirain/molisync/server/internal/updatecheck"
 	"github.com/molirain/molisync/server/internal/ws"
 )
 
 // Deps are the collaborators required by the HTTP surface.
 type Deps struct {
-	Auth     *auth.Middleware
-	Hub      *ws.Hub
-	Store    *store.Store
-	Sessions *p2p.Store
-	Relay    *p2p.Relay
-	Logger   *slog.Logger
+	Auth      *auth.Middleware
+	Hub       *ws.Hub
+	Store     *store.Store
+	Sessions  *p2p.Store
+	Relay     *p2p.Relay
+	Telemetry *telemetry.Reporter
+	// Updates reports whether a newer server release exists.
+	Updates *updatecheck.Checker
+	// Version is the server build version advertised to clients.
+	Version string
+	Logger  *slog.Logger
 }
 
 // NewRouter builds the complete HTTP handler, including the middleware chain.
@@ -40,7 +48,8 @@ func NewRouter(deps Deps) http.Handler {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleHealth)
-	mux.Handle("GET /api/v1/me", deps.Auth.RequireDevice(http.HandlerFunc(handleMe)))
+	mux.Handle("GET /api/v1/me", deps.Auth.RequireDevice(http.HandlerFunc(handleMe(deps))))
+	mux.Handle("GET /api/v1/stats", deps.Auth.RequireDevice(http.HandlerFunc(handleStats(deps))))
 	mux.Handle("GET /api/v1/devices", deps.Auth.RequireDevice(http.HandlerFunc(handleDevices(deps.Hub))))
 	mux.Handle("GET /api/v1/ws", deps.Auth.RequireDevice(deps.Hub))
 	mux.Handle("GET /api/v1/records", deps.Auth.RequireDevice(http.HandlerFunc(handleListRecords(deps))))
@@ -64,30 +73,136 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 type meResponse struct {
-	DeviceID        string `json:"device_id"`
-	CommonName      string `json:"common_name,omitempty"`
-	Fingerprint     string `json:"fingerprint,omitempty"`
-	ProxyIP         string `json:"proxy_ip"`
-	AuthenticatedAt int64  `json:"authenticated_at"`
+	DeviceID        string              `json:"device_id"`
+	CommonName      string              `json:"common_name,omitempty"`
+	Fingerprint     string              `json:"fingerprint,omitempty"`
+	ProxyIP         string              `json:"proxy_ip"`
+	AuthenticatedAt int64               `json:"authenticated_at"`
+	ServerVersion   string              `json:"server_version,omitempty"`
+	ServerUpdate    *updatecheck.Status `json:"server_update,omitempty"`
 }
 
-func handleMe(w http.ResponseWriter, r *http.Request) {
-	identity, ok := auth.FromContext(r.Context())
-	if !ok {
-		writeAPIError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
-		return
+func handleMe(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		identity, ok := auth.FromContext(r.Context())
+		if !ok {
+			writeAPIError(w, http.StatusUnauthorized, "unauthorized", "authentication is required")
+			return
+		}
+		response := meResponse{
+			DeviceID:        identity.DeviceID,
+			CommonName:      identity.CommonName,
+			Fingerprint:     identity.Fingerprint,
+			ProxyIP:         identity.ProxyIP.String(),
+			AuthenticatedAt: identity.AuthenticatedAt.UnixMilli(),
+			ServerVersion:   deps.Version,
+		}
+		if deps.Updates != nil {
+			status := deps.Updates.Status()
+			response.ServerUpdate = &status
+		}
+		writeJSON(w, http.StatusOK, response)
 	}
-	writeJSON(w, http.StatusOK, meResponse{
-		DeviceID:        identity.DeviceID,
-		CommonName:      identity.CommonName,
-		Fingerprint:     identity.Fingerprint,
-		ProxyIP:         identity.ProxyIP.String(),
-		AuthenticatedAt: identity.AuthenticatedAt.UnixMilli(),
-	})
 }
 
 type devicesResponse struct {
 	Devices []ws.DeviceView `json:"devices"`
+}
+
+// statsResponse is the local, authenticated statistics view. It is what the
+// operator reads with curl; it is never published publicly.
+type statsResponse struct {
+	ServerVersion   string              `json:"server_version"`
+	ProtocolVersion int                 `json:"protocol_version"`
+	DeploymentID    string              `json:"deployment_id"`
+	FirstSeen       int64               `json:"first_seen,omitempty"`
+	GeneratedAt     int64               `json:"generated_at"`
+	Devices         statsDevices        `json:"devices"`
+	Platforms       statsPlatforms      `json:"platforms"`
+	Records         statsRecords        `json:"records"`
+	Telemetry       telemetry.Status    `json:"telemetry"`
+	ServerUpdate    *updatecheck.Status `json:"server_update,omitempty"`
+}
+
+type statsDevices struct {
+	Total     int `json:"total"`
+	Online    int `json:"online"`
+	Active7d  int `json:"active_7d"`
+	Active30d int `json:"active_30d"`
+}
+
+type statsPlatforms struct {
+	Windows int `json:"windows"`
+	Android int `json:"android"`
+	Other   int `json:"other"`
+}
+
+type statsRecords struct {
+	Text  int   `json:"text"`
+	Image int   `json:"image"`
+	File  int   `json:"file"`
+	Bytes int64 `json:"bytes"`
+}
+
+func handleStats(deps Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.Store == nil {
+			writeAPIError(w, http.StatusServiceUnavailable, "stats_unavailable", "statistics are not configured")
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		snapshot, err := deps.Store.Snapshot(ctx)
+		if err != nil {
+			if deps.Logger != nil {
+				deps.Logger.Error("collect statistics", "error", err)
+			}
+			writeAPIError(w, http.StatusInternalServerError, "stats_failed", "cannot compute statistics")
+			return
+		}
+
+		online := 0
+		if deps.Hub != nil {
+			online = len(deps.Hub.Devices())
+		}
+
+		response := statsResponse{
+			ServerVersion:   deps.Version,
+			ProtocolVersion: ws.ProtocolVersion,
+			DeploymentID:    snapshot.DeploymentID,
+			GeneratedAt:     time.Now().UTC().UnixMilli(),
+			Devices: statsDevices{
+				Total:     snapshot.Devices.Total,
+				Online:    online,
+				Active7d:  snapshot.Devices.Active7d,
+				Active30d: snapshot.Devices.Active30d,
+			},
+			Platforms: statsPlatforms{
+				Windows: snapshot.Devices.Windows,
+				Android: snapshot.Devices.Android,
+				Other:   snapshot.Devices.Other,
+			},
+			Records: statsRecords{
+				Text:  snapshot.Records.Text,
+				Image: snapshot.Records.Image,
+				File:  snapshot.Records.File,
+				Bytes: snapshot.Records.Bytes,
+			},
+		}
+		if !snapshot.FirstSeen.IsZero() {
+			response.FirstSeen = snapshot.FirstSeen.Unix()
+		}
+		if deps.Telemetry != nil {
+			response.Telemetry = deps.Telemetry.Status()
+		}
+		if deps.Updates != nil {
+			status := deps.Updates.Status()
+			response.ServerUpdate = &status
+		}
+
+		writeJSON(w, http.StatusOK, response)
+	}
 }
 
 func handleDevices(hub *ws.Hub) http.HandlerFunc {

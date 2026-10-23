@@ -8,7 +8,7 @@ import (
 )
 
 func TestRelayPairsConnectionsAndCopiesBothWays(t *testing.T) {
-	relay := NewRelay(2 * time.Second, nil)
+	relay := NewRelay(2*time.Second, nil)
 
 	leftLocal, leftPeer := net.Pipe()
 	rightLocal, rightPeer := net.Pipe()

@@ -56,13 +56,15 @@ func (d Duration) MarshalYAML() (any, error) { return time.Duration(d).String(),
 
 // Config is the complete server configuration.
 type Config struct {
-	Server    ServerConfig    `yaml:"server"`
-	Proxy     ProxyConfig     `yaml:"proxy"`
-	Auth      AuthConfig      `yaml:"auth"`
-	Registry  RegistryConfig  `yaml:"registry"`
-	Storage   StorageConfig   `yaml:"storage"`
-	WebSocket WebSocketConfig `yaml:"websocket"`
-	Log       LogConfig       `yaml:"log"`
+	Server      ServerConfig      `yaml:"server"`
+	Proxy       ProxyConfig       `yaml:"proxy"`
+	Auth        AuthConfig        `yaml:"auth"`
+	Registry    RegistryConfig    `yaml:"registry"`
+	Storage     StorageConfig     `yaml:"storage"`
+	WebSocket   WebSocketConfig   `yaml:"websocket"`
+	Telemetry   TelemetryConfig   `yaml:"telemetry"`
+	UpdateCheck UpdateCheckConfig `yaml:"update_check"`
+	Log         LogConfig         `yaml:"log"`
 }
 
 // ServerConfig covers the HTTP listener.
@@ -130,6 +132,34 @@ type LogConfig struct {
 	Format string `yaml:"format" env:"MOLISYNC_LOG_FORMAT"`
 }
 
+// TelemetryConfig controls the anonymous aggregate report sent to a collector.
+// The report contains only counters; it never includes device identifiers,
+// names, IP addresses or record contents.
+type TelemetryConfig struct {
+	Enabled  bool     `yaml:"enabled" env:"MOLISYNC_TELEMETRY_ENABLED"`
+	Endpoint string   `yaml:"endpoint" env:"MOLISYNC_TELEMETRY_ENDPOINT"`
+	Token    string   `yaml:"token" env:"MOLISYNC_TELEMETRY_TOKEN"`
+	Interval Duration `yaml:"interval" env:"MOLISYNC_TELEMETRY_INTERVAL"`
+	Timeout  Duration `yaml:"timeout" env:"MOLISYNC_TELEMETRY_TIMEOUT"`
+}
+
+// Active reports whether the reporter should run. An enabled reporter without
+// an endpoint stays silent, which keeps older configuration files valid.
+func (t TelemetryConfig) Active() bool {
+	return t.Enabled && strings.TrimSpace(t.Endpoint) != ""
+}
+
+// UpdateCheckConfig controls the server's own release lookup. Clients read the
+// result through /api/v1/me instead of querying GitHub themselves, so one
+// deployment produces one request per interval rather than one per device.
+type UpdateCheckConfig struct {
+	Enabled    bool     `yaml:"enabled" env:"MOLISYNC_UPDATE_CHECK_ENABLED"`
+	Repository string   `yaml:"repository" env:"MOLISYNC_UPDATE_CHECK_REPOSITORY"`
+	APIBase    string   `yaml:"api_base" env:"MOLISYNC_UPDATE_CHECK_API_BASE"`
+	Interval   Duration `yaml:"interval" env:"MOLISYNC_UPDATE_CHECK_INTERVAL"`
+	Timeout    Duration `yaml:"timeout" env:"MOLISYNC_UPDATE_CHECK_TIMEOUT"`
+}
+
 // Default returns a configuration that is safe to run on a host where the
 // reverse proxy connects from loopback.
 func Default() *Config {
@@ -178,6 +208,19 @@ func Default() *Config {
 			HeartbeatInterval:    Duration(25 * time.Second),
 			MaxMessagesPerSecond: 20,
 			AllowedOrigins:       nil,
+		},
+		Telemetry: TelemetryConfig{
+			Enabled:  true,
+			Endpoint: "",
+			Interval: Duration(24 * time.Hour),
+			Timeout:  Duration(10 * time.Second),
+		},
+		UpdateCheck: UpdateCheckConfig{
+			Enabled:    true,
+			Repository: "Molirain/Moli_Sync",
+			APIBase:    "https://api.github.com",
+			Interval:   Duration(12 * time.Hour),
+			Timeout:    Duration(10 * time.Second),
 		},
 		Log: LogConfig{Level: "info", Format: "json"},
 	}
@@ -330,6 +373,30 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	validateRange(add, "telemetry.interval", c.Telemetry.Interval, time.Minute, 30*24*time.Hour)
+	validateRange(add, "telemetry.timeout", c.Telemetry.Timeout, time.Second, time.Minute)
+	if c.Telemetry.Active() {
+		parsed, err := url.Parse(strings.TrimSpace(c.Telemetry.Endpoint))
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+			add("telemetry.endpoint: must be an absolute https URL")
+		}
+		if parsed != nil && (parsed.User != nil || parsed.Fragment != "") {
+			add("telemetry.endpoint: must not contain credentials or a fragment")
+		}
+	}
+
+	validateRange(add, "update_check.interval", c.UpdateCheck.Interval, time.Hour, 7*24*time.Hour)
+	validateRange(add, "update_check.timeout", c.UpdateCheck.Timeout, time.Second, time.Minute)
+	if c.UpdateCheck.Enabled {
+		if !validRepository(c.UpdateCheck.Repository) {
+			add("update_check.repository: must look like \"owner/name\"")
+		}
+		parsed, err := url.Parse(strings.TrimSpace(c.UpdateCheck.APIBase))
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+			add("update_check.api_base: must be an absolute https URL")
+		}
+	}
+
 	switch strings.ToLower(c.Log.Level) {
 	case "debug", "info", "warn", "error":
 	default:
@@ -468,6 +535,30 @@ func validateRange(add func(string, ...any), name string, value Duration, minimu
 	if value.Std() < minimum || value.Std() > maximum {
 		add("%s: must be between %s and %s", name, minimum, maximum)
 	}
+}
+
+// validRepository accepts the "owner/name" form used by the GitHub API.
+func validRepository(repository string) bool {
+	parts := strings.Split(strings.TrimSpace(repository), "/")
+	if len(parts) != 2 {
+		return false
+	}
+	for _, part := range parts {
+		if part == "" || len(part) > 100 {
+			return false
+		}
+		for _, character := range part {
+			switch {
+			case character >= 'a' && character <= 'z':
+			case character >= 'A' && character <= 'Z':
+			case character >= '0' && character <= '9':
+			case character == '-', character == '_', character == '.':
+			default:
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func isControl(r rune) bool {

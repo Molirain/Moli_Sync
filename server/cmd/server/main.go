@@ -21,6 +21,8 @@ import (
 	"github.com/molirain/molisync/server/internal/p2p"
 	"github.com/molirain/molisync/server/internal/registry"
 	"github.com/molirain/molisync/server/internal/store"
+	"github.com/molirain/molisync/server/internal/telemetry"
+	"github.com/molirain/molisync/server/internal/updatecheck"
 	"github.com/molirain/molisync/server/internal/ws"
 )
 
@@ -143,18 +145,66 @@ func serve(cfg *config.Config, logger *slog.Logger) error {
 	}
 	hub.SetSessions(sessions)
 	hub.SetRelayPath("/api/v1/relay")
+	hub.SetServerVersion(version)
+
+	reporter, err := telemetry.New(records, telemetry.Options{
+		Endpoint:        cfg.Telemetry.Endpoint,
+		Token:           cfg.Telemetry.Token,
+		Interval:        cfg.Telemetry.Interval.Std(),
+		Timeout:         cfg.Telemetry.Timeout.Std(),
+		ServerVersion:   version,
+		ProtocolVersion: ws.ProtocolVersion,
+		OnlineDevices:   func() int { return len(hub.Devices()) },
+		Logger:          logger,
+	})
+	if err != nil {
+		return err
+	}
+
+	var updates *updatecheck.Checker
+	if cfg.UpdateCheck.Enabled {
+		checker, checkErr := updatecheck.New(updatecheck.Options{
+			Repository: cfg.UpdateCheck.Repository,
+			Component:  updatecheck.ComponentServer,
+			Current:    version,
+			APIBase:    cfg.UpdateCheck.APIBase,
+			Interval:   cfg.UpdateCheck.Interval.Std(),
+			Timeout:    cfg.UpdateCheck.Timeout.Std(),
+			Logger:     logger,
+		})
+		if checkErr != nil {
+			// A development build reports "dev", which is not a semver value.
+			// Update checking is optional, so this must not stop the server.
+			logger.Info("server update check disabled", "reason", checkErr.Error())
+		} else {
+			updates = checker
+		}
+	}
 
 	router := api.NewRouter(api.Deps{
-		Auth:     authMiddleware,
-		Hub:      hub,
-		Store:    records,
-		Sessions: sessions,
-		Relay:    p2p.NewRelay(15*time.Second, logger),
-		Logger:   logger,
+		Auth:      authMiddleware,
+		Hub:       hub,
+		Store:     records,
+		Sessions:  sessions,
+		Relay:     p2p.NewRelay(15*time.Second, logger),
+		Telemetry: reporter,
+		Updates:   updates,
+		Version:   version,
+		Logger:    logger,
 	})
 
 	signalContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	go reporter.Run(signalContext)
+	if reporter.Enabled() {
+		logger.Info("telemetry reporting enabled", "interval", cfg.Telemetry.Interval.Std())
+	} else {
+		logger.Info("telemetry reporting disabled", "reason", "no endpoint configured or disabled")
+	}
+	if updates != nil {
+		go updates.Run(signalContext)
+	}
 
 	listener, err := net.Listen("tcp", cfg.Server.Listen)
 	if err != nil {
