@@ -108,14 +108,19 @@ All components share a MAJOR.MINOR baseline (the protocol-compatibility generati
 
 ## Usage statistics
 
-The count is deliberately simple: **one device equals one installation, monotonic**. The server counts distinct devices by their hashed identity, so restarting a device any number of times counts once; the collector keeps the historical maximum per deployment, so deleting a device never lowers the number. Clients contain no analytics at all.
+**Use `users` (the number of self-hosted deployments) as the headcount.** MoliSync is self-hosted and accountless; the server only knows certificates, so there is no "person" entity. Two honest numbers are available:
 
-- Every 24 hours (±10% jitter) the server POSTs one aggregate JSON document to `telemetry.endpoint`: a random deployment id, versions, total devices, 7/30-day active devices, platform split, record counts and total bytes.
+| Metric | Meaning | Bias as a headcount |
+| --- | --- | --- |
+| `users` (deployments) | How many servers people run | Closest to real users; people who use someone else's server are not counted → undercounts |
+| `installations` | Devices that ever connected (counted once, monotonic) | One person with a laptop and a phone counts as 2 → overcounts |
+
+- Every 24 hours (±10% jitter) the server POSTs one aggregate JSON document to `telemetry.endpoint`: a random deployment id, versions, total devices, 7/30-day active devices, platform split, record counts and total bytes. That is a counter sync, not repeated counting.
 - Device identifiers are stored as an **HMAC with a per-deployment random salt**, so the database holds no reversible certificate fingerprint. Names, IP addresses and record contents are never reported.
-- The collector books only the **number** of new installations per UTC day in `install_events` — never which device — so the all-time total only grows while growth stays visible.
+- The collector books only the **number** of new installations per UTC day in `install_events` — never which device — so totals only grow while growth stays visible.
 - The endpoint defaults to empty (reporting off). Deploy the collector and set the endpoint to enable it, or set `MOLISYNC_TELEMETRY_ENABLED=false` to opt out entirely.
 
-One number is all you need:
+One command to read it:
 
 ```sh
 curl -H "Authorization: Bearer $MOLISYNC_COLLECTOR_ADMIN_TOKEN" \
@@ -124,15 +129,15 @@ curl -H "Authorization: Bearer $MOLISYNC_COLLECTOR_ADMIN_TOKEN" \
 
 ```text
 MoliSync usage
-  installations : 12  (7d +2, 30d +5)
-  deployments   : 3
+  users         : 3   (self-hosted deployments; one owner each)
+  installations : 12  (devices; 7d +2, 30d +5)
   devices       : 12 total, 4 online, 6 active 7d, 9 active 30d
   platforms     : windows 5, android 6, other 1
   records       : 120 (text 100, image 15, file 5), 1.2 GiB
   version 0.5.0   : 2 deployment(s), 9 device(s)
 ```
 
-Drop `?format=text` for the same data as JSON. To see only your own deployment, call `https://<your-host>/api/v1/stats` with a device certificate.
+Drop `?format=text` for the same data as JSON (`deployments` is the same value as `users`). To see only your own deployment, call `https://<your-host>/api/v1/stats` with a device certificate.
 
 ## Quick start with Docker
 

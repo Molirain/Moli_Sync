@@ -108,14 +108,19 @@ Android 客户端用“文字 / 图片 / 文件”三栏实现这套规则。服
 
 ## 使用统计
 
-口径很简单：**一台设备 = 一个安装数，只 +1，永不减**。服务端按哈希后的唯一设备计数，同一台设备重启多少次都只算 1；收集器再对每个部署取历史最大值求和，所以删设备也不会让数字变小。客户端没有任何埋点。
+**你要看的"使用者数"用 `users`（= 自建部署数）**。MoliSync 是自托管 + 无账号体系，服务端只认证书，没有"人"这个实体，因此只能给出两个可诚实定义的数：
 
-- 服务端每 24 小时（±10% 抖动）向 `telemetry.endpoint` POST 一份聚合 JSON：随机部署 ID、版本、设备总数、7/30 天活跃、平台分布、记录数与字节数。
+| 指标 | 含义 | 对"人数"的偏差 |
+| --- | --- | --- |
+| `users`（deployments） | 有多少套自建服务器 | 最接近使用者；用别人服务器的人不计入 → 偏低 |
+| `installations` | 有多少台设备接入过（每设备只算一次，只增不减） | 一个人「电脑+手机」= 2 → 偏高 |
+
+- 服务端每 24 小时（±10% 抖动）向 `telemetry.endpoint` POST 一份聚合 JSON：随机部署 ID、版本、设备总数、7/30 天活跃、平台分布、记录数与字节数。这只是同步计数器，不是重复计数。
 - 设备标识以**每部署随机盐做 HMAC** 后存进 SQLite，数据库里没有可逆的证书指纹；设备名、IP、记录内容从不上报。
-- 收集器只在 `install_events` 里按天累加**新增安装数**（只存数字，不存是哪个设备），因此历史安装总数单调递增，同时能看出增长曲线。
+- 收集器只在 `install_events` 里按天累加**新增安装数**（只存数字，不存是哪个设备），所以安装总数单调递增，同时能看出增长曲线。
 - 默认 `endpoint` 为空即不上报；要开启就部署收集器并填上地址。`MOLISYNC_TELEMETRY_ENABLED=false` 可彻底关闭。
 
-你只需要看一个数字：
+一条命令看结果：
 
 ```sh
 curl -H "Authorization: Bearer $MOLISYNC_COLLECTOR_ADMIN_TOKEN" \
@@ -124,15 +129,15 @@ curl -H "Authorization: Bearer $MOLISYNC_COLLECTOR_ADMIN_TOKEN" \
 
 ```text
 MoliSync usage
-  installations : 12  (7d +2, 30d +5)
-  deployments   : 3
+  users         : 3   (self-hosted deployments; one owner each)
+  installations : 12  (devices; 7d +2, 30d +5)
   devices       : 12 total, 4 online, 6 active 7d, 9 active 30d
   platforms     : windows 5, android 6, other 1
   records       : 120 (text 100, image 15, file 5), 1.2 GiB
   version 0.5.0   : 2 deployment(s), 9 device(s)
 ```
 
-去掉 `?format=text` 则返回同样内容的 JSON。只想看自己这一套部署：`curl` 带设备证书访问 `https://<你的域名>/api/v1/stats`。
+去掉 `?format=text` 则返回同样内容的 JSON（`deployments` 即 `users`）。只想看自己这一套部署：`curl` 带设备证书访问 `https://<你的域名>/api/v1/stats`。
 
 ## Docker 快速开始
 

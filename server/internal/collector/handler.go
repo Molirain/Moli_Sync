@@ -184,14 +184,17 @@ func handleStats(
 	_, _ = w.Write(payload)
 }
 
-// RenderText formats the totals for a terminal, leading with the one number an
-// operator usually wants: how many installations exist.
+// RenderText formats the totals for a terminal. The first line answers "how
+// many people use this?" using deployments, because a self-hosted, accountless
+// system can only approximates people; the second line reports devices, which
+// over-counts anyone with more than one client.
 func RenderText(totals Totals) string {
 	var builder strings.Builder
 	builder.WriteString("MoliSync usage\n")
-	fmt.Fprintf(&builder, "  installations : %d  (7d +%d, 30d +%d)\n",
+	fmt.Fprintf(&builder, "  users         : %d   (self-hosted deployments; one owner each)\n",
+		totals.Deployments)
+	fmt.Fprintf(&builder, "  installations : %d   (devices; 7d +%d, 30d +%d)\n",
 		totals.Installations, totals.NewLast7Days, totals.NewLast30Days)
-	fmt.Fprintf(&builder, "  deployments   : %d\n", totals.Deployments)
 	fmt.Fprintf(&builder, "  devices       : %d total, %d online, %d active 7d, %d active 30d\n",
 		totals.Devices.Total, totals.Devices.Online, totals.Devices.Active7d, totals.Devices.Active30d)
 	fmt.Fprintf(&builder, "  platforms     : windows %d, android %d, other %d\n",

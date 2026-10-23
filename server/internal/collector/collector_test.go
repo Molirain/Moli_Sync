@@ -285,11 +285,11 @@ func TestHandlerRendersTextSummary(t *testing.T) {
 		t.Fatalf("content type = %q", contentType)
 	}
 	text := recorder.Body.String()
-	if !strings.Contains(text, "installations : 4") {
-		t.Fatalf("missing installation headline:\n%s", text)
+	if !strings.Contains(text, "users         : 1") {
+		t.Fatalf("missing user headline:\n%s", text)
 	}
-	if !strings.Contains(text, "deployments   : 1") {
-		t.Fatalf("missing deployment count:\n%s", text)
+	if !strings.Contains(text, "installations : 4") {
+		t.Fatalf("missing installation count:\n%s", text)
 	}
 }
 
