@@ -15,6 +15,7 @@
 web/
 ├── index.html              # Landing page 结构与英文回退文案
 ├── privacy.html            # 隐私声明（双语，独立页面）
+├── dist/                   # 部署产物（npm run build 生成，已忽略）
 ├── docs/                   # 多页文档站（构建产物，已提交）
 │   ├── index.html
 │   ├── server.html
@@ -29,7 +30,8 @@ web/
 │   ├── server.zh-CN.html
 │   └── …
 ├── scripts/
-│   └── build-docs.mjs      # 生成 docs/*.html 与 docs-*.js 字典
+│   ├── build-docs.mjs      # 生成 docs/*.html 与 docs-*.js 字典
+│   └── stage-pages.mjs     # 把可部署文件收集到 dist/
 ├── _headers                # Cloudflare Pages 安全头与缓存
 ├── robots.txt
 ├── package.json
@@ -58,11 +60,11 @@ web/
 cd web
 npm ci
 npm run build
-python -m http.server 4173
+python -m http.server 4173 --directory dist
 # http://localhost:4173/
 ```
 
-修改 `index.html`、`docs-src/`、`src/tailwind.css` 或 `tailwind.config.js` 后需要重新运行 `npm run build`。开发时可使用 `npm run dev` 持续构建 CSS；只改文档正文时用 `npm run docs` 重新生成 HTML 与语言字典。
+修改 `index.html`、`docs-src/`、`src/tailwind.css` 或 `tailwind.config.js` 后需要重新运行 `npm run build`。开发时可使用 `npm run dev` 持续构建 CSS；只改文档正文时用 `npm run docs` 重新生成 HTML 与语言字典，再用 `npm run stage` 更新 `dist/`。
 
 不要用 `file://` 预览字体：部分浏览器会因 CORS 拒绝加载本地 woff2，页面会回退到系统字体。用本地 HTTP 服务即可看到真实效果。
 
@@ -74,7 +76,7 @@ Git 集成（推荐）：
 | --- | --- |
 | Root directory | 仓库根目录 |
 | Build command | `cd web && npm ci && npm run build` |
-| Build output directory | `web` |
+| Build output directory | `web/dist` |
 | Framework preset | None |
 
 也可以把 Root directory 设为 `web`，此时：
@@ -82,9 +84,9 @@ Git 集成（推荐）：
 | 设置项 | 值 |
 | --- | --- |
 | Build command | `npm ci && npm run build` |
-| Build output directory | `.` |
+| Build output directory | `dist` |
 
-不想在 CI 中构建时，可以直接使用已提交的 `assets/css/site.css`、`docs/*.html` 与 `docs-*.js`，Build command 留空。只要 HTML 里新增了 Tailwind 类或改动了 `docs-src/`，就必须在本地重新构建并提交产物。
+`npm run build` 最后会把可部署文件收集到 `web/dist`，Cloudflare 的构建输出目录就是它。若不想在 CI 构建，需要本地运行 `npm run build` 并提交 `web/dist`（当前 `.gitignore` 忽略，不推荐），否则输出目录会是空的。
 
 `_headers` 已包含：
 

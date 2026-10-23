@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "node scripts/build-docs.mjs && tailwindcss -i ./src/tailwind.css -o ./assets/css/site.css --minify",
+    "build": "node scripts/build-docs.mjs && tailwindcss -i ./src/tailwind.css -o ./assets/css/site.css --minify && node scripts/stage-pages.mjs",
     "docs": "node scripts/build-docs.mjs",
+    "stage": "node scripts/stage-pages.mjs",
     "dev": "tailwindcss -i ./src/tailwind.css -o ./assets/css/site.css --watch"
   },
   "devDependencies": {
