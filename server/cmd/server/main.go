@@ -19,6 +19,7 @@ import (
 	"github.com/molirain/molisync/server/internal/api"
 	"github.com/molirain/molisync/server/internal/auth"
 	"github.com/molirain/molisync/server/internal/config"
+	"github.com/molirain/molisync/server/internal/ephemeral"
 	"github.com/molirain/molisync/server/internal/p2p"
 	"github.com/molirain/molisync/server/internal/registry"
 	"github.com/molirain/molisync/server/internal/store"
@@ -105,6 +106,18 @@ func serve(cfg *config.Config, logger *slog.Logger) error {
 			logger.Error("close record store", "error", err)
 		}
 	}()
+
+	// A Compose file that declares a volume but never mounts it looks fine
+	// until the first image update recreates the container and wipes the
+	// database. Say so loudly, once, at startup.
+	if ephemeral, checkErr := ephemeral.Detect(cfg.Storage.DataDir); checkErr != nil {
+		logger.Debug("cannot inspect the mount table", "error", checkErr)
+	} else if ephemeral {
+		logger.Warn("data directory is inside the container writable layer; it is lost when the container is recreated",
+			"data_dir", cfg.Storage.DataDir,
+			"fix", "mount a named volume or bind mount at this path, e.g. volumes: [molisync-data:/var/lib/molisync]",
+		)
+	}
 
 	thumbs, err := thumbnail.Open(filepath.Join(cfg.Storage.DataDir, "thumbs"))
 	if err != nil {

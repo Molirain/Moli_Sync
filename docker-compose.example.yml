@@ -86,8 +86,11 @@ services:
       - ALL
 
     volumes:
-      # SQLite database + blobs. Removing the container keeps the records;
-      # `docker compose down -v` intentionally deletes them.
+      # SQLite database + blobs. This mount is what makes the records survive
+      # an image update: without it the data lives in the container writable
+      # layer and `docker compose up` after a pull deletes everything.
+      # Removing the container keeps the records; `docker compose down -v`
+      # intentionally deletes them.
       - molisync-data:/var/lib/molisync
 
     healthcheck:

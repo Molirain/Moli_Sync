@@ -68,6 +68,11 @@ docker run --rm -p 127.0.0.1:9520:9520 \
 不要把这个端口发布到宿主机或公网。如需 YAML 配置，挂载到 `/config.yaml:ro` 并设置
 `command: ["-config", "/config.yaml"]`；环境变量仍然优先于 YAML。
 
+> **卷必须挂到服务里，只声明不挂载一样会丢数据。**
+> `volumes:` 顶层只负责"声明卷"，真正持久化靠 service 里的 `volumes: - molisync-data:/var/lib/molisync`。
+> 少了这一行，SQLite 与 blob 会落在容器可写层，`docker compose pull && up -d` 一重建容器就全没了。
+> 0.5.2 起服务端启动时会检查挂载表，若数据目录位于 overlay 可写层会打印一条 `level=WARN` 提示。
+
 ## 持久化存储
 
 服务端把云记录写入 SQLite（`<data_dir>/molisync.db`，WAL 模式），blob 写入

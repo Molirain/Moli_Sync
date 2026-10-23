@@ -106,6 +106,7 @@
 <h2 id="data">Data and backup</h2>
 <ul>
   <li><code>molisync-data</code> holds SQLite metadata and the <code>blobs/</code> directory.</li>
+  <li>The volume must be mounted on the <strong>service</strong>: <code>volumes: [molisync-data:/var/lib/molisync]</code>. Declaring a top-level <code>volumes:</code> entry persists nothing, and recreating the container wipes the database.</li>
   <li>Records do not expire automatically, and there is no quota yet.</li>
   <li>Only the sender can delete a record.</li>
   <li>Back up the database and blobs together, ideally while the service is stopped or quiesced.</li>
