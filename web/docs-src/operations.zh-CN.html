@@ -26,7 +26,7 @@
 docker compose up -d
 docker compose ps</code></pre>
 <p>升级前请确认 <code>/var/lib/molisync</code> 确实挂载了卷；否则 <code>up -d</code> 重建容器就是一次数据清空。</p>
-<p>三端共享「主.次」版本号，补丁号各自独立。发布标签按组件命名：<code>server-v0.5.1</code> 只构建服务端镜像，<code>desktop-v0.5.1</code> 只发布便携版，<code>android-v0.5.1</code> 只发布 APK；没有全局 <code>v*</code> 标签，因此修一端不会连带发布全量。</p>
+<p>三端共享「主.次」版本号，补丁号各自独立。发布标签按组件命名：<code>server-v0.5.2</code> 只构建服务端镜像，<code>desktop-v0.5.1</code> 只发布便携版，<code>android-v0.5.2</code> 只发布 APK（0.5.2 的修复没有动桌面端，所以 Windows 仍停在 0.5.1）；没有全局 <code>v*</code> 标签，因此修一端不会连带发布全量。</p>
 <p>镜像标签包括 <code>latest</code>、<code>X.Y.Z</code> 与 <code>sha-&lt;commit&gt;</code>。需要可复现的发布时请固定版本标签，并在升级前备份数据卷。服务端每 12 小时自查一次 <code>server-v</code> 发布，并通过 <code>/api/v1/me</code> 把结果转达给客户端，由客户端提示“服务端需要升级”。</p>
 
 <h2 id="stats">使用统计</h2>

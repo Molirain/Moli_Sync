@@ -128,7 +128,8 @@
 <pre data-lang="sh"><code>docker compose pull
 docker compose up -d
 docker compose ps</code></pre>
-<p>Components share a MAJOR.MINOR baseline while each keeps its own PATCH number. Release tags are per component: <code>server-v0.5.1</code> builds only the server image, <code>desktop-v0.5.1</code> publishes only the portable archive and <code>android-v0.5.1</code> only the APK. There is no umbrella <code>v*</code> tag, so fixing one client never publishes everything.</p>
+<p>Before upgrading, confirm that <code>/var/lib/molisync</code> really is a mounted volume; otherwise <code>up -d</code> recreates the container and deletes the records.</p>
+<p>Components share a MAJOR.MINOR baseline while each keeps its own PATCH number. Release tags are per component: <code>server-v0.5.2</code> builds only the server image, <code>desktop-v0.5.1</code> publishes only the portable archive and <code>android-v0.5.2</code> only the APK (the 0.5.2 fixes did not touch the desktop client, so Windows stays on 0.5.1). There is no umbrella <code>v*</code> tag, so fixing one client never publishes everything.</p>
 <p>Images are tagged <code>latest</code>, <code>X.Y.Z</code> and <code>sha-&lt;commit&gt;</code>. Pin a version tag if you need reproducible rollouts, and back up the volume before upgrading. The server checks the <code>server-v</code> namespace every 12 hours and forwards the result through <code>/api/v1/me</code>, which is how clients warn that the server itself is behind.</p>
 
 <h2 id="stats">Usage statistics</h2>
