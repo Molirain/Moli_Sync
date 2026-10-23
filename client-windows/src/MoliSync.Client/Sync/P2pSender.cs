@@ -96,7 +96,7 @@ public sealed class P2pSender
                     CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
                     // Identity is pinned by fingerprint instead of a shared CA.
                     RemoteCertificateValidationCallback = (_, certificate, _, _) =>
-                        certificate is not null && MatchesTarget(certificate, session.ToDeviceId),
+                        certificate is not null && MatchesTarget(certificate, session.ToFingerprint),
                 }, cancellationToken).ConfigureAwait(false);
                 stream = peerTls;
             }
@@ -106,6 +106,7 @@ public sealed class P2pSender
                 SessionId = session.SessionId,
                 Ticket = session.Ticket,
                 DeviceId = _identity.DeviceId,
+                DeviceFingerprint = _identity.DeviceId,
                 DeviceName = deviceName,
                 Files = files.ToList(),
             }, cancellationToken).ConfigureAwait(false);
@@ -161,11 +162,16 @@ public sealed class P2pSender
         }
     }
 
-    private bool MatchesTarget(X509Certificate certificate, string expectedDeviceId)
+    private bool MatchesTarget(X509Certificate certificate, string expectedFingerprint)
     {
+        if (!DeviceView.IsFingerprint(expectedFingerprint))
+        {
+            return false;
+        }
+
         var raw = certificate as X509Certificate2 ?? new X509Certificate2(certificate);
         var fingerprint = Convert.ToHexString(SHA256.HashData(raw.RawData)).ToLowerInvariant();
-        return string.Equals(fingerprint, expectedDeviceId, StringComparison.Ordinal);
+        return string.Equals(fingerprint, expectedFingerprint, StringComparison.Ordinal);
     }
 
     private bool ValidatePeerCertificate(

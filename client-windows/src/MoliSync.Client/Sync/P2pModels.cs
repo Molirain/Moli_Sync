@@ -21,6 +21,9 @@ public sealed class P2pManifest
 
     public string DeviceId { get; set; } = string.Empty;
 
+    /// <summary>SHA-256 of the sender certificate, used to pin the peer.</summary>
+    public string DeviceFingerprint { get; set; } = string.Empty;
+
     public string DeviceName { get; set; } = string.Empty;
 
     public List<P2pFileMeta> Files { get; set; } = new();
@@ -54,7 +57,8 @@ public sealed record P2pSession(
     string ToDeviceId,
     IReadOnlyList<DeviceView> Devices,
     string? RelayUrl,
-    long ExpiresAt)
+    long ExpiresAt,
+    string ToFingerprint = "")
 {
     public bool IsExpired => ExpiresAt > 0 && DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() > ExpiresAt;
 }

@@ -15,6 +15,7 @@ public sealed class P2pFramesTests
             SessionId = "session-1",
             Ticket = "dGlja2V0",
             DeviceId = "device-a",
+            DeviceFingerprint = new string('e', 64),
             DeviceName = "书房电脑",
             Files =
             {
@@ -28,6 +29,7 @@ public sealed class P2pFramesTests
         var raw = Encoding.UTF8.GetString(buffer.ToArray(), 4, (int)buffer.Length - 4);
         Assert.Contains("\"session_id\":\"session-1\"", raw, StringComparison.Ordinal);
         Assert.Contains("\"device_name\"", raw, StringComparison.Ordinal);
+        Assert.Contains("\"device_fingerprint\"", raw, StringComparison.Ordinal);
         Assert.Contains("\"mime_type\":\"image/png\"", raw, StringComparison.Ordinal);
 
         buffer.Position = 0;
@@ -35,6 +37,7 @@ public sealed class P2pFramesTests
 
         Assert.Equal("session-1", restored.SessionId);
         Assert.Equal("device-a", restored.DeviceId);
+        Assert.Equal(new string('e', 64), restored.DeviceFingerprint);
         Assert.Equal("书房电脑", restored.DeviceName);
         Assert.Single(restored.Files);
         Assert.Equal(42, restored.Files[0].Size);

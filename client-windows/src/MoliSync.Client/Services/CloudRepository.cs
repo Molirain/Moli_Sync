@@ -12,6 +12,9 @@ namespace MoliSync.Client.Services;
 /// </summary>
 public sealed class CloudRepository
 {
+    private const int ThumbnailWidth = 480;
+    private const string ThumbnailFileName = "preview.jpg";
+
     private readonly HttpClient _http;
     private readonly Uri _baseUri;
     private readonly DataDirectoryManager _dataDirectory;
@@ -165,6 +168,60 @@ public sealed class CloudRepository
             _ => downloader.DownloadAsync(descriptor, null, cancellationToken),
             cancellationToken).ConfigureAwait(false);
         return result.FilePath;
+    }
+
+    /// <summary>
+    /// Downloads a server-rendered preview into the per-record cache and
+    /// returns its path. Falls back to the full blob when the server cannot
+    /// render a preview (older server or an unsupported image format).
+    /// </summary>
+    public async Task<string> EnsureThumbnailAsync(
+        CloudRecord record,
+        CancellationToken cancellationToken)
+    {
+        if (!record.HasBlob)
+        {
+            throw new InvalidOperationException("record has no blob");
+        }
+
+        var directory = Path.Combine(_dataDirectory.Current, "cache", record.RecordId);
+        var target = Path.Combine(directory, ThumbnailFileName);
+        if (File.Exists(target) && new FileInfo(target).Length > 0)
+        {
+            return target;
+        }
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            new Uri(_baseUri, $"api/v1/blobs/{Uri.EscapeDataString(record.RecordId)}/thumb?w={ThumbnailWidth}"));
+        using var response = await _http
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+            .ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.UnsupportedMediaType)
+        {
+            return await EnsureCachedAsync(record, cancellationToken).ConfigureAwait(false);
+        }
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+            throw CreateError(response.StatusCode, error);
+        }
+
+        Directory.CreateDirectory(directory);
+        var temporary = target + ".part";
+        await using (var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
+        await using (var sink = new FileStream(
+            temporary,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            64 * 1024,
+            useAsync: true))
+        {
+            await source.CopyToAsync(sink, cancellationToken).ConfigureAwait(false);
+        }
+        File.Move(temporary, target, overwrite: true);
+        return target;
     }
 
     public async Task DeleteAsync(string recordId, CancellationToken cancellationToken)

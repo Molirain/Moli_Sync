@@ -136,9 +136,9 @@ public partial class ImagesPage : UserControl
             return;
         }
 
-        if (item.ThumbnailPath is { } cached && File.Exists(cached))
+        if (item.LocalPath is { } downloaded && File.Exists(downloaded))
         {
-            ShowViewer(item, cached);
+            ShowViewer(item, downloaded);
             return;
         }
 
@@ -148,8 +148,7 @@ public partial class ImagesPage : UserControl
             var path = await session.Cloud.EnsureCachedAsync(item.Record, CancellationToken.None);
             item.SetThumbnail(path);
             item.MarkDownloadedIfEmpty(path);
-            ShowViewer(item, path);
-        }
+            ShowViewer(item, path);        }
         catch (Exception exception)
         {
             shell.Notify($"预览失败：{exception.Message}");

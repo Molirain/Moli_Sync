@@ -574,13 +574,9 @@ public sealed class ShellViewModel : INotifyPropertyChanged
                         }
                         await Dispatcher.UIThread.InvokeAsync(item.MarkThumbnailLoading);
                         var path = await session.Cloud
-                            .EnsureCachedAsync(item.Record, CancellationToken.None)
+                            .EnsureThumbnailAsync(item.Record, CancellationToken.None)
                             .ConfigureAwait(false);
-                        await Dispatcher.UIThread.InvokeAsync(() =>
-                        {
-                            item.SetThumbnail(path);
-                            item.MarkDownloadedIfEmpty(path);
-                        });
+                        await Dispatcher.UIThread.InvokeAsync(() => item.SetThumbnail(path));
                     }
                     catch (Exception exception)
                     {

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MoliSync.Client.Sync;
 
 public static class ProtocolTypes
@@ -50,6 +52,9 @@ public sealed class DeviceView
 {
     public string DeviceId { get; set; } = string.Empty;
 
+    /// <summary>SHA-256 of the peer certificate; the stable identity to pin.</summary>
+    public string Fingerprint { get; set; } = string.Empty;
+
     public string? CommonName { get; set; }
 
     public string Name { get; set; } = string.Empty;
@@ -63,6 +68,19 @@ public sealed class DeviceView
     public long LastSeen { get; set; }
 
     public int Connections { get; set; }
+
+    /// <summary>
+    /// Certificate digest to pin. Servers before 0.5 only exposed the
+    /// fingerprint as the DeviceID, so fall back to it when it looks like one.
+    /// </summary>
+    [JsonIgnore]
+    public string PinFingerprint =>
+        !string.IsNullOrWhiteSpace(Fingerprint) ? Fingerprint.Trim().ToLowerInvariant() :
+        IsFingerprint(DeviceId) ? DeviceId.Trim().ToLowerInvariant() :
+        string.Empty;
+
+    public static bool IsFingerprint(string? value) =>
+        value is { Length: 64 } && value.All(static c => c is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F');
 }
 
 public sealed class HelloMessage

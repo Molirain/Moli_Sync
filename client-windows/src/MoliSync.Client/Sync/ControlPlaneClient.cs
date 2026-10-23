@@ -266,7 +266,10 @@ public sealed class ControlPlaneClient
                 envelope.ToDeviceId,
                 envelope.Devices ?? new List<DeviceView>(),
                 envelope.RelayUrl,
-                envelope.ExpiresAt ?? 0);
+                envelope.ExpiresAt ?? 0,
+                (envelope.Devices ?? new List<DeviceView>())
+                    .FirstOrDefault(device => string.Equals(device.DeviceId, envelope.ToDeviceId, StringComparison.Ordinal))
+                    ?.PinFingerprint ?? string.Empty);
             try
             {
                 SessionTicketReceived?.Invoke(session);

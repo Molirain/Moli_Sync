@@ -195,7 +195,11 @@ public sealed class P2pListener : IAsyncDisposable
                 }
 
                 var fingerprint = Convert.ToHexString(SHA256.HashData(peer.RawData)).ToLowerInvariant();
-                if (!string.Equals(fingerprint, manifest.DeviceId, StringComparison.Ordinal))
+                var pinned = !string.IsNullOrWhiteSpace(manifest.DeviceFingerprint)
+                    ? manifest.DeviceFingerprint
+                    : manifest.DeviceId;
+                if (!DeviceView.IsFingerprint(pinned) ||
+                    !string.Equals(fingerprint, pinned, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new InvalidDataException("peer certificate fingerprint does not match the sender");
                 }
