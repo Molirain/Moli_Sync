@@ -7,6 +7,8 @@ import com.molirain.molisync.data.ConnectionState
 import com.molirain.molisync.data.ControlPlaneClient
 import com.molirain.molisync.data.DeviceDirectory
 import com.molirain.molisync.data.UpdateChecker
+import com.molirain.molisync.data.UpdateCheckState
+import com.molirain.molisync.data.UpdatePolicy
 import com.molirain.molisync.data.cloud.CloudRepository
 import com.molirain.molisync.security.KeyChainAdapter
 import com.molirain.molisync.transfer.P2pListener
@@ -44,6 +46,9 @@ class MoliSyncApp : Application() {
 
     /** A newer Android build that the user has not dismissed yet. */
     val pendingUpdate = MutableStateFlow<AppUpdate?>(null)
+
+    /** Progress and outcome of the release lookup, shown in the settings page. */
+    val updateCheckState = MutableStateFlow<UpdateCheckState>(UpdateCheckState.Idle)
 
     private val updateChecker = UpdateChecker()
 
@@ -103,18 +108,16 @@ class MoliSyncApp : Application() {
     }
 
     /**
-     * Looks for a newer `android-v*` release. Results are cached for 24 hours so
-     * repeated launches stay well inside the anonymous GitHub rate limit.
+     * Looks for a newer `android-v*` release. Automatic checks run at most once
+     * per [UpdatePolicy.CHECK_INTERVAL_MS]; [force] bypasses the cache so the
+     * settings button always asks GitHub again and reports a visible result.
      */
     fun checkForUpdates(force: Boolean) {
-        if (!settings.isConfigured) {
-            return
-        }
         val now = System.currentTimeMillis()
         val cachedVersion = settings.cachedUpdateVersion
         val cachedUrl = settings.cachedUpdateUrl
 
-        if (!force && now - settings.updateCheckedAt < UPDATE_INTERVAL_MS) {
+        if (!UpdatePolicy.shouldRefresh(force, now, settings.updateCheckedAt)) {
             pendingUpdate.value = if (
                 cachedVersion != null &&
                 cachedUrl != null &&
@@ -128,12 +131,29 @@ class MoliSyncApp : Application() {
             return
         }
 
+        if (updateCheckState.value == UpdateCheckState.Checking) {
+            return
+        }
+        updateCheckState.value = UpdateCheckState.Checking
+
         applicationScope.launch {
-            val update = runCatching { updateChecker.check(BuildConfig.VERSION_NAME) }
-            if (update.isSuccess) {
-                val found = update.getOrNull()
-                settings.saveUpdateResult(now, found)
-                pendingUpdate.value = found?.takeIf { it.version != settings.dismissedUpdateVersion }
+            val result = runCatching { updateChecker.check(BuildConfig.VERSION_NAME) }
+            val checkedAt = System.currentTimeMillis()
+            result.onSuccess { found ->
+                settings.saveUpdateResult(checkedAt, found)
+                if (found == null) {
+                    updateCheckState.value = UpdateCheckState.UpToDate(BuildConfig.VERSION_NAME)
+                    pendingUpdate.value = null
+                } else {
+                    updateCheckState.value = UpdateCheckState.Available(found)
+                    pendingUpdate.value = found.takeIf { it.version != settings.dismissedUpdateVersion }
+                }
+            }.onFailure { failure ->
+                // A failed lookup must not consume the interval, otherwise a
+                // flight-mode launch would hide updates for hours.
+                updateCheckState.value = UpdateCheckState.Failed(
+                    failure.message ?: "无法连接 GitHub",
+                )
             }
         }
     }
@@ -154,10 +174,5 @@ class MoliSyncApp : Application() {
         p2pListener.stop()
         startTransport()
         controlPlane.restart()
-    }
-
-    companion object {
-        /** 24 hours between automatic update checks. */
-        private const val UPDATE_INTERVAL_MS = 24L * 60L * 60L * 1000L
     }
 }

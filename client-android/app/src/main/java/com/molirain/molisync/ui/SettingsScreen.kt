@@ -59,6 +59,7 @@ import com.molirain.molisync.BuildConfig
 import com.molirain.molisync.MoliSyncApp
 import com.molirain.molisync.data.ClientSettings
 import com.molirain.molisync.data.ConnectionState
+import com.molirain.molisync.data.UpdateCheckState
 import com.molirain.molisync.transfer.TransferNotifications
 import com.molirain.molisync.ui.theme.MoliColors
 import kotlinx.coroutines.Dispatchers
@@ -80,6 +81,7 @@ fun SettingsScreen(
     val connection by app.controlPlane.state.collectAsStateWithLifecycle()
     val self by app.deviceDirectory.self.collectAsStateWithLifecycle()
     val others by app.deviceDirectory.devices.collectAsStateWithLifecycle()
+    val updateCheck by app.updateCheckState.collectAsStateWithLifecycle()
 
     var thresholdMb by remember {
         mutableFloatStateOf(app.settings.cloudThresholdBytes / (1024f * 1024f))
@@ -319,10 +321,12 @@ fun SettingsScreen(
 
             OutlinedButton(
                 onClick = { app.checkForUpdates(force = true) },
+                enabled = updateCheck != UpdateCheckState.Checking,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("检查更新")
             }
+            UpdateStatusLine(updateCheck)
         }
     }
 }

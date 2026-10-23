@@ -95,7 +95,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.molirain.molisync.BuildConfig
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.molirain.molisync.MoliSyncApp
 import com.molirain.molisync.data.ConnectionState
@@ -137,7 +136,6 @@ fun HomeScreen(app: MoliSyncApp, onSettings: () -> Unit) {
     val connection by app.controlPlane.state.collectAsStateWithLifecycle()
     val self by app.deviceDirectory.self.collectAsStateWithLifecycle()
     val others by app.deviceDirectory.devices.collectAsStateWithLifecycle()
-    val availableUpdate by app.pendingUpdate.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableStateOf(MoliTab.TEXT.name) }
     val selectedTab = MoliTab.valueOf(tab)
@@ -258,40 +256,6 @@ fun HomeScreen(app: MoliSyncApp, onSettings: () -> Unit) {
                 }
             }
         }
-    }
-
-    availableUpdate?.let { update ->
-        AlertDialog(
-            onDismissRequest = { app.dismissUpdate(update) },
-            title = { Text("发现新版本 ${update.version}") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "当前版本 ${BuildConfig.VERSION_NAME}",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    update.notes?.let { notes ->
-                        Text(
-                            notes.take(400),
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 8,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        openUrl(context, update.url)
-                        app.dismissUpdate(update)
-                    },
-                ) { Text("前往下载") }
-            },
-            dismissButton = {
-                TextButton(onClick = { app.dismissUpdate(update) }) { Text("稍后") }
-            },
-        )
     }
 
     if (showComposer) {
@@ -1294,18 +1258,6 @@ private fun startP2p(context: Context, uri: Uri, mimeType: String) {
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(intent)
-}
-
-/** Opens an https release page in the browser; never uses another scheme. */
-private fun openUrl(context: Context, url: String) {
-    val parsed = runCatching { Uri.parse(url) }.getOrNull() ?: return
-    if (!parsed.scheme.equals("https", ignoreCase = true)) {
-        return
-    }
-    val intent = Intent(Intent.ACTION_VIEW, parsed).apply {
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-    runCatching { context.startActivity(intent) }
 }
 
 private fun copyToClipboard(context: Context, text: String) {    val manager = context.getSystemService(ClipboardManager::class.java)

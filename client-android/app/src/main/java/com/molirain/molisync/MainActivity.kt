@@ -17,9 +17,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.molirain.molisync.ui.AppUpdateDialog
 import com.molirain.molisync.ui.HomeScreen
 import com.molirain.molisync.ui.SettingsScreen
 import com.molirain.molisync.ui.SetupScreen
+import com.molirain.molisync.ui.openExternalUrl
 import com.molirain.molisync.ui.theme.MoliSyncTheme
 
 class MainActivity : ComponentActivity() {
@@ -73,5 +76,19 @@ private fun RootScreen(app: MoliSyncApp) {
         )
 
         else -> HomeScreen(app, onSettings = { showSettings = true })
+    }
+
+    // The prompt lives at the root so a manual check from the settings page
+    // shows it without navigating back.
+    val pendingUpdate by app.pendingUpdate.collectAsStateWithLifecycle()
+    pendingUpdate?.let { update ->
+        AppUpdateDialog(
+            update = update,
+            onDismiss = { app.dismissUpdate(update) },
+            onDownload = {
+                openExternalUrl(context, update.url)
+                app.dismissUpdate(update)
+            },
+        )
     }
 }
