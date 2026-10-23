@@ -1,9 +1,11 @@
 package com.molirain.molisync
 
 import android.app.Application
+import com.molirain.molisync.data.AppUpdate
 import com.molirain.molisync.data.ClientSettings
 import com.molirain.molisync.data.ControlPlaneClient
 import com.molirain.molisync.data.DeviceDirectory
+import com.molirain.molisync.data.UpdateChecker
 import com.molirain.molisync.data.cloud.CloudRepository
 import com.molirain.molisync.security.KeyChainAdapter
 import com.molirain.molisync.transfer.P2pListener
@@ -13,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 class MoliSyncApp : Application() {
@@ -33,6 +36,11 @@ class MoliSyncApp : Application() {
 
     lateinit var p2pListener: P2pListener
         private set
+
+    /** A newer Android build that the user has not dismissed yet. */
+    val pendingUpdate = MutableStateFlow<AppUpdate?>(null)
+
+    private val updateChecker = UpdateChecker()
 
     /**
      * Emits whenever another device publishes a record. The UI uses this as a
@@ -77,7 +85,49 @@ class MoliSyncApp : Application() {
 
         if (settings.isConfigured) {
             startTransport()
+            checkForUpdates(force = false)
         }
+    }
+
+    /**
+     * Looks for a newer `android-v*` release. Results are cached for 24 hours so
+     * repeated launches stay well inside the anonymous GitHub rate limit.
+     */
+    fun checkForUpdates(force: Boolean) {
+        if (!settings.isConfigured) {
+            return
+        }
+        val now = System.currentTimeMillis()
+        val cachedVersion = settings.cachedUpdateVersion
+        val cachedUrl = settings.cachedUpdateUrl
+
+        if (!force && now - settings.updateCheckedAt < UPDATE_INTERVAL_MS) {
+            pendingUpdate.value = if (
+                cachedVersion != null &&
+                cachedUrl != null &&
+                UpdateChecker.compareVersions(cachedVersion, BuildConfig.VERSION_NAME) > 0 &&
+                cachedVersion != settings.dismissedUpdateVersion
+            ) {
+                AppUpdate(cachedVersion, "", cachedUrl, null)
+            } else {
+                null
+            }
+            return
+        }
+
+        applicationScope.launch {
+            val update = runCatching { updateChecker.check(BuildConfig.VERSION_NAME) }
+            if (update.isSuccess) {
+                val found = update.getOrNull()
+                settings.saveUpdateResult(now, found)
+                pendingUpdate.value = found?.takeIf { it.version != settings.dismissedUpdateVersion }
+            }
+        }
+    }
+
+    fun dismissUpdate(update: AppUpdate) {
+        settings.dismissUpdate(update.version)
+        pendingUpdate.value = null
     }
 
     /** Starts the P2P listener and the control plane with the current identity. */
@@ -91,5 +141,10 @@ class MoliSyncApp : Application() {
         p2pListener.stop()
         startTransport()
         controlPlane.restart()
+    }
+
+    companion object {
+        /** 24 hours between automatic update checks. */
+        private const val UPDATE_INTERVAL_MS = 24L * 60L * 60L * 1000L
     }
 }

@@ -56,6 +56,28 @@ class ClientSettings(context: Context) {
     fun saveDeviceName(name: String): Boolean =
         preferences.edit().putString(KEY_DEVICE_NAME, sanitizeDisplayName(name)).commit()
 
+    val updateCheckedAt: Long
+        get() = preferences.getLong(KEY_UPDATE_CHECKED_AT, 0L)
+
+    val cachedUpdateVersion: String?
+        get() = preferences.getString(KEY_UPDATE_VERSION, null)
+
+    val cachedUpdateUrl: String?
+        get() = preferences.getString(KEY_UPDATE_URL, null)
+
+    val dismissedUpdateVersion: String?
+        get() = preferences.getString(KEY_UPDATE_DISMISSED, null)
+
+    fun saveUpdateResult(checkedAt: Long, update: AppUpdate?): Boolean =
+        preferences.edit()
+            .putLong(KEY_UPDATE_CHECKED_AT, checkedAt)
+            .putString(KEY_UPDATE_VERSION, update?.version)
+            .putString(KEY_UPDATE_URL, update?.url)
+            .commit()
+
+    fun dismissUpdate(version: String): Boolean =
+        preferences.edit().putString(KEY_UPDATE_DISMISSED, version).commit()
+
     fun clearCertificate(): Boolean =
         preferences.edit()
             .remove(KEY_CERT_ALIAS)
@@ -76,6 +98,10 @@ class ClientSettings(context: Context) {
         private const val KEY_CERT_FINGERPRINT = "cert_fingerprint"
         private const val KEY_DEVICE_NAME = "device_name"
         private const val KEY_CLOUD_THRESHOLD = "cloud_threshold_bytes"
+        private const val KEY_UPDATE_CHECKED_AT = "update_checked_at"
+        private const val KEY_UPDATE_VERSION = "update_version"
+        private const val KEY_UPDATE_URL = "update_url"
+        private const val KEY_UPDATE_DISMISSED = "update_dismissed"
 
         const val DEFAULT_CLOUD_THRESHOLD_BYTES = 15L * 1024L * 1024L
         const val MIN_CLOUD_THRESHOLD_BYTES = 5L * 1024L * 1024L

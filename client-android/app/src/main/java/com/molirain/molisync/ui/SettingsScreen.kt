@@ -316,6 +316,13 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
+
+            OutlinedButton(
+                onClick = { app.checkForUpdates(force = true) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("检查更新")
+            }
         }
     }
 }
